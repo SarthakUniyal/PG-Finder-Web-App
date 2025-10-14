@@ -1,0 +1,238 @@
+/* --- Final src/style/Auth.css --- */
+
+/* Main Container */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Form Card */
+.auth-card {
+  background-color: #ffffff;
+  padding: 2.5rem 3rem;
+  border-radius: 16px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+
+.auth-card h2 {
+  font-size: 1.85rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  color: #2c3e50;
+}
+
+.auth-subtitle {
+  color: #7f8c8d;
+  margin-bottom: 2rem;
+}
+
+/* Form Groups & Labels */
+.form-group {
+  margin-bottom: 1.25rem;
+  text-align: left;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.88rem;
+  margin-bottom: 0.4rem;
+  color: #34495e;
+}
+
+/* Input Fields */
+.input-group {
+  position: relative;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.75rem;
+  border: 1px solid #dfe6ed;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #34495e;
+  background-color: #fcfdfe;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-group input::placeholder {
+  color: #95a5a6;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #2d23e3;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(45, 35, 227, 0.2);
+}
+
+/* Input Icons */
+.input-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #95a5a6;
+  pointer-events: none;
+}
+
+.input-icon-right {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #95a5a6;
+  cursor: pointer;
+}
+
+/* This rule handles the alignment for "Remember me" and "Forgot password?" */
+.form-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #555;
+}
+
+.forgot-link {
+  color: #2d23e3;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+/* Submit Button with your new color */
+.auth-button {
+  width: 100%;
+  padding: 0.85rem;
+  border: none;
+  border-radius: 8px;
+  background-color: #2d23e3;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Corrected hover effect */
+.auth-button:hover {
+  background-color: #241cb4;
+  box-shadow: 0 5px 15px rgba(45, 35, 227, 0.3);
+}
+
+/* Footer Link with your new color */
+.auth-footer {
+  margin-top: 2rem;
+  font-size: 0.9rem;
+  color: #7f8c8d;
+}
+
+.auth-footer a {
+  color: #2d23e3;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Signup Account Type Cards with your new color */
+.account-type-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+}
+
+.account-type-card {
+  padding: 1rem;
+  border: 1px solid #dfe6ed;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.account-type-card:hover {
+  border-color: #aebacd;
+}
+
+.account-type-card:has(input:checked) {
+  border-color: #2d23e3;
+  background-color: rgba(45, 35, 227, 0.08); /* Light background matching your new primary color */
+}
+
+.account-type-card input[type="radio"] {
+  display: none;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  color: #2d23e3;
+}
+.card-content strong {
+  font-weight: 600;
+  color: #2c3e50;
+}
+.card-content small {
+  font-size: 0.74rem;
+  color: #7f8c8d;
+}
+
+/* Add this to the end of src/style/Auth.css */
+
+/* Loader (Spinner) */
+.loader {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  animation: spin 1s ease-in-out infinite;
+  margin: 0 auto; /* Center the spinner */
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Style for the button when it's disabled */
+.auth-button:disabled {
+  background-color: #5d55f0; /* Slightly lighter shade of your button color */
+  cursor: not-allowed;
+}
+
+.success-message {
+  color: #27ae60; /* Green text */
+  background-color: #e9f7ef; /* Light green background */
+  border: 1px solid #a3d9b8; /* Light green border */
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-weight: 500;
+}
+
+.error-message {
+  color: #c0392b; /* Red text */
+  background-color: #fbeae9; /* Light red background */
+  border: 1px solid #eeb8b3; /* Light red border */
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-weight: 500;
+}

@@ -1,32 +1,33 @@
-const express = require("express");
-const cors = require("cors");
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+require('dotenv').config(); // Loads environment variables from .env file
 
-require("dotenv").config();
+const app = express();
+const PORT = process.env.PORT || 5000;
 
-const connectDB=require('./db');
-const tenantRoutes =require("./routes/tenantRoutes");
-const pgRoutes =require("./routes/pgRoutes");
+// --- Middleware ---
+app.use(cors()); // Enable Cross-Origin Resource Sharing
+app.use(express.json()); // Allow the server to accept JSON in the body of requests
 
-const app=express();
-
-connectDB();
-
-app.use(cors({
-    origin:'http://localhost:5173' ,
-    credentials:true,
-}));
-app.use(express.json());
-
-app.get('/',(req,res)=>{
-    res.send('Server is ready');
+// --- ADD THIS LOGGING MIDDLEWARE ---
+app.use((req, res, next) => {
+  console.log(`Request Received: ${req.method} ${req.path}`);
+  next();
 });
 
-app.use('/tenants',tenantRoutes);
-app.use('/pg',pgRoutes);
+// --- Database Connection ---
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('MongoDB Connected...'))
+.catch(err => console.log(err));
 
+// --- API Routes ---
+app.use('/api/auth', require('./routes/auth')); // Mount the auth routes
 
-const port = process.env.PORT || 3005;
-
-app.listen(port,()=>{
-    console.log(`Serve at http:localhost:${port}`);
+// --- Start the Server ---
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });

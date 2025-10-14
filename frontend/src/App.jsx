@@ -1,26 +1,21 @@
-import './App.css'
-import {Home, About, Product} from './pages/index'
-import { BrowserRouter as Router, Routes, Route  } from 'react-router-dom'
-import { Navigation, InsertPG } from './components'
-import InsertTenant from './components/InsertTenant'
+import './App.css';
+import './index.css';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+
 function App() {
 
   return (
-    <> 
-      <Router>
-        <Navigation/>
-        <Routes>
-          <Route path='/' element={<Home/> }/>  
-          <Route path='/about' element={<About/> }/>  
-          <Route path='/product' element={<Product/> }/>  
-          <Route path='/insertRooms' element={<InsertPG/> }/>  
-          <Route path='/insertTenant' element={<InsertTenant/> }/>
-
-          <Route/>  
-        </Routes>
-      </Router> 
-    </>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;

@@ -1,6 +1,4 @@
-import Home from './Home';
-import About from './About';
-import Product from './Product';
+import Login from './Login';
+import Signup from './Signup';
 
-
-export {Home, About, Product};
+export { Login, Signup };
