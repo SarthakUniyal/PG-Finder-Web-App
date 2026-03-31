@@ -8,11 +8,11 @@ function buildQuery(...parts) {
 
 async function geocodeAddress({ plotNumber, street, landmark, area, city, pinCode }) {
   const queries = [
-    buildQuery(plotNumber, street, landmark, area, city, pinCode, 'Uttarakhand', 'India'),
-    buildQuery(plotNumber, street, area, city, pinCode, 'Uttarakhand', 'India'),
-    buildQuery(street, landmark, area, city, pinCode, 'Uttarakhand', 'India'),
-    buildQuery(street, area, city, pinCode, 'Uttarakhand', 'India'),
-    buildQuery(area, city, pinCode, 'Uttarakhand', 'India'),
+    buildQuery(plotNumber, street, landmark, area, city, pinCode, 'India'),
+    buildQuery(plotNumber, street, area, city, pinCode, 'India'),
+    buildQuery(street, landmark, area, city, pinCode, 'India'),
+    buildQuery(street, area, city, pinCode, 'India'),
+    buildQuery(area, city, pinCode, 'India'),
   ].filter(Boolean);
 
   for (const q of queries) {

@@ -10,16 +10,15 @@ async function geocodeAddress({
   area,
   city,
   pinCode,
-  state = 'Uttarakhand',
   country = 'India',
 }) {
   const buildQuery = (...parts) => parts.filter(Boolean).join(', ');
   const queries = [
-    buildQuery(plotNumber, street, landmark, area, city, pinCode, state, country),
-    buildQuery(plotNumber, street, area, city, pinCode, state, country),
-    buildQuery(street, landmark, area, city, pinCode, state, country),
-    buildQuery(street, area, city, pinCode, state, country),
-    buildQuery(area, city, pinCode, state, country),
+    buildQuery(plotNumber, street, landmark, area, city, pinCode, country),
+    buildQuery(plotNumber, street, area, city, pinCode, country),
+    buildQuery(street, landmark, area, city, pinCode, country),
+    buildQuery(street, area, city, pinCode, country),
+    buildQuery(area, city, pinCode, country),
   ].filter(Boolean);
 
   for (const q of queries) {
