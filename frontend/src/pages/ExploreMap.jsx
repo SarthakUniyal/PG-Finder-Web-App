@@ -160,6 +160,7 @@ export default function ExploreMap() {
   const [locStatus,      setLocStatus]      = useState('idle');
   const [dijkstraResult, setDijkstraResult] = useState(null);
   const [selectedLinePG, setSelectedLinePG] = useState(null); // PG to draw line to
+  const [routePath, setRoutePath] = useState(null); // road path from routing API
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -206,6 +207,43 @@ export default function ExploreMap() {
       if (result?.nearest?.pg) setSelectedLinePG(result.nearest.pg);
     }
   }, [userPos, listings]);
+
+  // Fetch actual road route (not straight line) between user and selected PG
+  useEffect(() => {
+    if (!userPos || !selectedLinePG?.lat || !selectedLinePG?.lng) {
+      setRoutePath(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const fetchRoadRoute = async () => {
+      try {
+        const fromLng = userPos[1];
+        const fromLat = userPos[0];
+        const toLng = selectedLinePG.lng;
+        const toLat = selectedLinePG.lat;
+        const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+        const res = await fetch(url, { signal: controller.signal });
+        const data = await res.json();
+
+        const coords = data?.routes?.[0]?.geometry?.coordinates;
+        if (!Array.isArray(coords) || coords.length === 0) {
+          setRoutePath(null);
+          return;
+        }
+
+        // OSRM returns [lng, lat]; Leaflet expects [lat, lng]
+        setRoutePath(coords.map(([lng, lat]) => [lat, lng]));
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          setRoutePath(null);
+        }
+      }
+    };
+
+    fetchRoadRoute();
+    return () => controller.abort();
+  }, [userPos, selectedLinePG]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -393,7 +431,7 @@ export default function ExploreMap() {
             {/* ── Shortest path Polyline ── */}
             {userPos && selectedLinePG && (
               <Polyline
-                positions={[userPos, [selectedLinePG.lat, selectedLinePG.lng]]}
+                positions={routePath || [userPos, [selectedLinePG.lat, selectedLinePG.lng]]}
                 color="#2563eb"
                 weight={3}
                 dashArray="8 5"
