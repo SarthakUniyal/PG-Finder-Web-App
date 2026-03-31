@@ -13,6 +13,19 @@ async function geocodeAddress({
   country = 'India',
 }) {
   const buildQuery = (...parts) => parts.filter(Boolean).join(', ');
+  const streetLine = buildQuery(plotNumber, street);
+  const structuredParams = new URLSearchParams({
+    format: 'jsonv2',
+    addressdetails: '1',
+    limit: '5',
+    countrycodes: 'in',
+    country: country || 'India',
+  });
+  if (streetLine) structuredParams.set('street', streetLine);
+  if (area) structuredParams.set('county', String(area));
+  if (city) structuredParams.set('city', String(city));
+  if (pinCode) structuredParams.set('postalcode', String(pinCode));
+
   const queries = [
     buildQuery(plotNumber, street, landmark, area, city, pinCode, country),
     buildQuery(plotNumber, street, area, city, pinCode, country),
@@ -23,14 +36,25 @@ async function geocodeAddress({
 
   for (const q of queries) {
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=in&q=${encodeURIComponent(q)}`;
-      const res = await fetch(url, {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?${structuredParams.toString()}`, {
         headers: {
           'User-Agent': 'PGFinderBackend/1.0',
         },
       });
-      if (!res.ok) continue;
-      const data = await res.json();
+      let data = [];
+      if (res.ok) {
+        data = await res.json();
+      }
+      if (!Array.isArray(data) || data.length === 0) {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=in&q=${encodeURIComponent(q)}`;
+        const qRes = await fetch(url, {
+          headers: {
+            'User-Agent': 'PGFinderBackend/1.0',
+          },
+        });
+        if (!qRes.ok) continue;
+        data = await qRes.json();
+      }
       if (!Array.isArray(data) || data.length === 0) continue;
 
       // Prefer higher-confidence results closer to requested locality/city.
