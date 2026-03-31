@@ -36,50 +36,78 @@ function MapControls({ setUserPos, setUserAccuracy, setLocStatus }) {
   const [locActive, setLocActive] = useState(false);
   const [locError,  setLocError]  = useState(false);
   const locatedPosRef = React.useRef(null);
+  const watchIdRef = React.useRef(null);
 
-  useEffect(() => {
-    const onFound = (e) => {
-      const pos = [e.latlng.lat, e.latlng.lng];
+  const clearWatcher = React.useCallback(() => {
+    if (watchIdRef.current !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  }, []);
+
+  const locateWithBrowserGPS = React.useCallback((shouldSetView = true) => {
+    if (!navigator.geolocation) {
+      setLocActive(false);
+      setLocError(true);
+      setLocStatus('error');
+      return;
+    }
+
+    clearWatcher();
+    setLocError(false);
+    setLocActive(true);
+    setLocStatus('locating');
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0, // force fresh GPS fix, avoid stale cached location
+    };
+
+    const onSuccess = (position) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      const accuracy = position.coords.accuracy || null;
+      const pos = [lat, lng];
+
       locatedPosRef.current = pos;
       setUserPos(pos);
-      setUserAccuracy(e.accuracy || null);
+      setUserAccuracy(accuracy);
       setLocStatus('success');
       setLocActive(false);
+
+      if (shouldSetView) {
+        map.flyTo(pos, 16, { duration: 1.2 });
+      }
     };
+
     const onError = () => {
       setLocActive(false);
       setLocError(true);
       setLocStatus('error');
       setTimeout(() => setLocError(false), 3000);
     };
-    map.on('locationfound', onFound);
-    map.on('locationerror', onError);
-    return () => {
-      map.off('locationfound', onFound);
-      map.off('locationerror', onError);
-    };
-  }, [map, setUserPos]);
+
+    navigator.geolocation.getCurrentPosition(onSuccess, onError, options);
+
+    // Keep listening briefly to improve fix quality if a better GPS reading arrives.
+    watchIdRef.current = navigator.geolocation.watchPosition(onSuccess, onError, options);
+    setTimeout(() => clearWatcher(), 20000);
+  }, [clearWatcher, map, setLocStatus, setUserAccuracy, setUserPos]);
+
+  useEffect(() => {
+    return () => clearWatcher();
+  }, [clearWatcher]);
 
   // ── Auto-locate on first mount ──
   useEffect(() => {
-    setLocActive(true);
-    setLocStatus('locating');
-    // Detect user location but avoid forcing map view, so all PG markers stay visible initially.
-    map.locate({ setView: false, maxZoom: 16, enableHighAccuracy: true });
-  }, [map, setLocStatus]);
+    // Detect user location but avoid forcing map view on initial load.
+    locateWithBrowserGPS(false);
+  }, [locateWithBrowserGPS]);
 
   const handleLocate = () => {
-    setLocError(false);
-    if (locatedPosRef.current) {
-      // Already located — just fly back to it
-      setLocStatus('success');
-      map.flyTo(locatedPosRef.current, 16, { duration: 1.2 });
-    } else {
-      // First time — ask Leaflet to find & fly to location
-      setLocActive(true);
-      setLocStatus('locating');
-      map.locate({ setView: true, maxZoom: 16, enableHighAccuracy: true });
-    }
+    // Always request a fresh GPS read (not cached), then recenter.
+    locateWithBrowserGPS(true);
   };
 
   return (
