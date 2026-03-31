@@ -31,7 +31,7 @@ const userLocationIcon = L.divIcon({
 
 
 // ── Unified right-side control panel (Locate + Zoom) ──
-function MapControls({ setUserPos }) {
+function MapControls({ setUserPos, setUserAccuracy, setLocStatus }) {
   const map = useMap();
   const [locActive, setLocActive] = useState(false);
   const [locError,  setLocError]  = useState(false);
@@ -42,11 +42,14 @@ function MapControls({ setUserPos }) {
       const pos = [e.latlng.lat, e.latlng.lng];
       locatedPosRef.current = pos;
       setUserPos(pos);
+      setUserAccuracy(e.accuracy || null);
+      setLocStatus('success');
       setLocActive(false);
     };
     const onError = () => {
       setLocActive(false);
       setLocError(true);
+      setLocStatus('error');
       setTimeout(() => setLocError(false), 3000);
     };
     map.on('locationfound', onFound);
@@ -60,18 +63,21 @@ function MapControls({ setUserPos }) {
   // ── Auto-locate on first mount ──
   useEffect(() => {
     setLocActive(true);
+    setLocStatus('locating');
     // Detect user location but avoid forcing map view, so all PG markers stay visible initially.
     map.locate({ setView: false, maxZoom: 16, enableHighAccuracy: true });
-  }, [map]);
+  }, [map, setLocStatus]);
 
   const handleLocate = () => {
     setLocError(false);
     if (locatedPosRef.current) {
       // Already located — just fly back to it
+      setLocStatus('success');
       map.flyTo(locatedPosRef.current, 16, { duration: 1.2 });
     } else {
       // First time — ask Leaflet to find & fly to location
       setLocActive(true);
+      setLocStatus('locating');
       map.locate({ setView: true, maxZoom: 16, enableHighAccuracy: true });
     }
   };
@@ -158,6 +164,7 @@ export default function ExploreMap() {
   const [userPos,        setUserPos]        = useState(null);
   const [userAddress,    setUserAddress]    = useState(null); // reverse-geocoded address
   const [locStatus,      setLocStatus]      = useState('idle');
+  const [userAccuracy,   setUserAccuracy]   = useState(null);
   const [dijkstraResult, setDijkstraResult] = useState(null);
   const [selectedLinePG, setSelectedLinePG] = useState(null); // PG to draw line to
   const [routePath, setRoutePath] = useState(null); // road path from routing API
@@ -313,7 +320,7 @@ export default function ExploreMap() {
             <FitListingsBounds listings={listings} />
 
             {/* 📍 Unified Controls Panel */}
-            <MapControls setUserPos={setUserPos} />
+            <MapControls setUserPos={setUserPos} setUserAccuracy={setUserAccuracy} setLocStatus={setLocStatus} />
 
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -466,6 +473,17 @@ export default function ExploreMap() {
                       : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Detecting address…</span>)
                   : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Enable location first</span>
                 }
+                {userPos && (
+                  <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#64748b' }}>
+                    {`Lat ${userPos[0].toFixed(5)}, Lng ${userPos[1].toFixed(5)}`}
+                    {userAccuracy ? ` | Accuracy ~${Math.round(userAccuracy)}m` : ''}
+                  </div>
+                )}
+                {!userPos && locStatus === 'error' && (
+                  <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#dc2626' }}>
+                    Location access denied/unavailable. Allow location in browser site settings.
+                  </div>
+                )}
               </div>
             </div>
 
