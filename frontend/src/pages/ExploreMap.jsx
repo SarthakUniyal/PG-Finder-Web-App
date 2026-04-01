@@ -17,21 +17,31 @@ const houseIcon = L.divIcon({
   popupAnchor: [0, -44],
 });
 
-// ── "You Are Here" blue pulse icon ──
-const userLocationIcon = L.divIcon({
-  className: 'user-marker',
-  html: `<div class="user-pulse">
-           <div class="user-dot"></div>
-         </div>`,
-  iconSize:   [22, 22],
-  iconAnchor: [11, 11],
-  popupAnchor: [0, -14],
-});
+// ── "You Are Here" blue pulse icon (optionally with heading arrow) ──
+function buildUserLocationIcon(headingDeg) {
+  const hasHeading = Number.isFinite(headingDeg);
+  const arrow = hasHeading
+    ? `<div class="user-heading" style="transform: rotate(${headingDeg}deg);">
+         <div class="user-heading-arrow"></div>
+       </div>`
+    : '';
+
+  return L.divIcon({
+    className: 'user-marker',
+    html: `<div class="user-pulse">
+             ${arrow}
+             <div class="user-dot"></div>
+           </div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    popupAnchor: [0, -14],
+  });
+}
 
 
 
 // ── Unified right-side control panel (Locate + Zoom) ──
-function MapControls({ setUserPos, setUserAccuracy, setLocStatus }) {
+function MapControls({ setUserPos, setUserAccuracy, setUserHeading, setLocStatus }) {
   const map = useMap();
   const [locActive, setLocActive] = useState(false);
   const [locError,  setLocError]  = useState(false);
@@ -68,11 +78,13 @@ function MapControls({ setUserPos, setUserAccuracy, setLocStatus }) {
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
       const accuracy = position.coords.accuracy || null;
+      const heading = Number.isFinite(position.coords.heading) ? position.coords.heading : null;
       const pos = [lat, lng];
 
       locatedPosRef.current = pos;
       setUserPos(pos);
       setUserAccuracy(accuracy);
+      setUserHeading(heading);
       setLocStatus('success');
       setLocActive(false);
 
@@ -193,6 +205,7 @@ export default function ExploreMap() {
   const [userAddress,    setUserAddress]    = useState(null); // reverse-geocoded address
   const [locStatus,      setLocStatus]      = useState('idle');
   const [userAccuracy,   setUserAccuracy]   = useState(null);
+  const [userHeading,    setUserHeading]    = useState(null);
   const [dijkstraResult, setDijkstraResult] = useState(null);
   const [selectedLinePG, setSelectedLinePG] = useState(null); // PG to draw line to
   const [routePath, setRoutePath] = useState(null); // road path from routing API
@@ -348,7 +361,12 @@ export default function ExploreMap() {
             <FitListingsBounds listings={listings} />
 
             {/* 📍 Unified Controls Panel */}
-            <MapControls setUserPos={setUserPos} setUserAccuracy={setUserAccuracy} setLocStatus={setLocStatus} />
+            <MapControls
+              setUserPos={setUserPos}
+              setUserAccuracy={setUserAccuracy}
+              setUserHeading={setUserHeading}
+              setLocStatus={setLocStatus}
+            />
 
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -453,7 +471,7 @@ export default function ExploreMap() {
 
             {/* 📍 User's live location marker */}
             {userPos && (
-              <Marker position={userPos} icon={userLocationIcon}>
+              <Marker position={userPos} icon={buildUserLocationIcon(userHeading)}>
                 <Popup>
                   <div className="user-loc-popup">
                     <strong>📍 You are here</strong>
@@ -505,6 +523,7 @@ export default function ExploreMap() {
                   <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#64748b' }}>
                     {`Lat ${userPos[0].toFixed(5)}, Lng ${userPos[1].toFixed(5)}`}
                     {userAccuracy ? ` | Accuracy ~${Math.round(userAccuracy)}m` : ''}
+                    {Number.isFinite(userHeading) ? ` | Heading ${Math.round(userHeading)}°` : ''}
                   </div>
                 )}
                 {!userPos && locStatus === 'error' && (
