@@ -233,12 +233,6 @@ Account type is selected at signup and stored in the JWT payload for role-based 
 
 ---
 
-## 📸 Screenshots
-
-> *(Add screenshots of your app here)*
-
----
-
 ## 🙏 Acknowledgements
 
 - [OpenStreetMap](https://www.openstreetmap.org/) & [Nominatim](https://nominatim.openstreetmap.org/) for free geocoding
