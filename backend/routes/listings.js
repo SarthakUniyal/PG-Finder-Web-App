@@ -87,18 +87,21 @@ async function geocodeAddress({
 
 // ── GET /api/listings?vacant=true  →  public, for the map ──
 router.get('/', async (req, res) => {
+  console.log('GET /api/listings - Request Received');
   try {
     const filter = {};
     if (req.query.vacant === 'true') filter.isVacant = true;
     
-    // Select only necessary fields for the map to vastly speed up the network request
-    // We intentionally exclude the 'images' array which can contain megabytes of base64 data.
+    console.log('GET /api/listings - Querying Database...');
     const listings = await Listing.find(filter)
-      .select('lat lng title price location image isVacant createdAt _id')
-      .sort({ createdAt: -1 });
-      
+      .select('lat lng title price location pgType image images isVacant createdAt _id plotNumber street landmark area city pinCode ownerName contactNumber amenities description rooms')
+      .sort({ createdAt: -1 })
+      .lean();
+    
+    console.log(`GET /api/listings - Found ${listings.length} items`);
     res.json(listings);
   } catch (err) {
+    console.error('GET /api/listings - Error:', err);
     res.status(500).json({ msg: 'Server error' });
   }
 });
@@ -106,9 +109,12 @@ router.get('/', async (req, res) => {
 // ── GET /api/listings/owner  →  protected, returns only THIS owner's PGs ──
 router.get('/owner', auth, async (req, res) => {
   try {
-    const listings = await Listing.find({ ownerId: req.user.id }).sort({ createdAt: -1 });
+    const listings = await Listing.find({ ownerId: req.user.id })
+      .sort({ createdAt: -1 })
+      .lean();
     res.json(listings);
   } catch (err) {
+    console.error('Owner listings fetch error:', err);
     res.status(500).json({ msg: 'Server error' });
   }
 });
@@ -120,6 +126,7 @@ router.get('/:id', async (req, res) => {
     if (!listing) return res.status(404).json({ msg: 'Listing not found' });
     res.json(listing);
   } catch (err) {
+    console.error(`Get listing by id (${req.params.id}) error:`, err);
     res.status(500).json({ msg: 'Server error' });
   }
 });
@@ -183,8 +190,8 @@ router.put('/:id', auth, async (req, res) => {
     if (update.images?.length)
       update.image = update.images[0];
 
-    // If location fields changed, recompute coordinates from full address.
-    if (update.plotNumber || update.street || update.landmark || update.area || update.city || update.pinCode) {
+    // If location fields changed AND we don't have new coordinates from frontend, recompute.
+    if ((update.plotNumber || update.street || update.landmark || update.area || update.city || update.pinCode) && (!update.lat || !update.lng)) {
       const geo = await geocodeAddress({
         plotNumber: update.plotNumber ?? listing.plotNumber,
         street: update.street ?? listing.street,
@@ -203,6 +210,7 @@ router.put('/:id', auth, async (req, res) => {
     await listing.save();
     res.json(listing);
   } catch (err) {
+    console.error('Update listing error:', err);
     res.status(500).json({ msg: 'Server error' });
   }
 });

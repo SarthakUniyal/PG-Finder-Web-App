@@ -103,12 +103,46 @@
 .pg-popup-loc {
   font-size: 0.8rem;
   color: #888;
+  margin-bottom: 0.4rem;
+}
+.pg-popup-type-tag {
+  display: inline-block;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
   margin-bottom: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border: 1px solid #e2e8f0;
 }
 .pg-popup-btn {
   padding: 0.35rem 0.8rem;
   font-size: 0.75rem;
   display: inline-block;
+}
+
+/* Enhanced Popup Styles */
+.pg-popup-amenities {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+.pg-popup-amenities span {
+  cursor: help;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+}
+.pg-popup-owner {
+  background: #f8fafc;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 12px;
 }
 
 /* Marker Overrides */

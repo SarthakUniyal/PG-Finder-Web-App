@@ -23,6 +23,7 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  savedListings: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Listing' }],
 });
 
 module.exports = mongoose.model('User_credentials', UserSchema);

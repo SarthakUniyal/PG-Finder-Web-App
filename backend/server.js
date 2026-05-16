@@ -7,14 +7,19 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // --- Middleware ---
-app.use(cors()); // Enable Cross-Origin Resource Sharing
-app.use(express.json()); // Allow the server to accept JSON in the body of requests
-
-// --- ADD THIS LOGGING MIDDLEWARE ---
 app.use((req, res, next) => {
-  console.log(`Request Received: ${req.method} ${req.path}`);
+  console.log(`[${new Date().toISOString()}] Request: ${req.method} ${req.path}`);
   next();
 });
+
+app.get('/health', (req, res) => {
+  console.log('Health check received');
+  res.send('ok');
+});
+
+app.use(cors()); // Enable Cross-Origin Resource Sharing
+app.use(express.json({ limit: '50mb' })); // Allow the server to accept large JSON (base64 images)
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // --- Database Connection ---
 mongoose.connect(process.env.MONGO_URI, {
@@ -26,6 +31,7 @@ mongoose.connect(process.env.MONGO_URI, {
 
 // --- API Routes ---
 app.use('/api/auth', require('./routes/auth')); // Mount the auth routes
+app.use('/api/listings', require('./routes/listings')); // Mount the listings routes
 
 // --- Start the Server ---
 app.listen(PORT, () => {

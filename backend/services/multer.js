@@ -5,9 +5,9 @@ const cloudinary = require("../services/cloudinary");
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: "uploads",
-    allowed_formats: ["jpeg", "png", "jpg"],
-    transformation: [{ width: 500, height: 500, crop: "limit" }],
+    folder: "public/listing",
+    // No format restriction — accept jpeg, png, jpg, webp, gif, avif, etc.
+    transformation: [{ width: 1200, height: 900, crop: "limit", quality: "auto" }],
   },
 });
 

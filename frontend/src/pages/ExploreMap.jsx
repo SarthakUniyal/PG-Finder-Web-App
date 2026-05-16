@@ -1,12 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import axios from 'axios';
 import PGLogo from '../components/PGLogo';
+import SmartImage from '../components/SmartImage';
 import { findNearestPG } from '../utils/dijkstra';
+import { cachedGet, cachedMutate, isOnline } from '../utils/offlineManager';
 import '../style/ExploreMap.css';
+import '../style/HomePage.css';
+
+// ── Image gallery sub-component with active thumbnail state ──
+function ModalGallery({ listing }) {
+  const images =
+    listing.images && listing.images.length > 0
+      ? listing.images
+      : listing.image
+      ? [listing.image]
+      : ['/pg_card_1.png'];
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  return (
+    <div className="hp-modal-gallery">
+      <div className="hp-modal-img-wrap-main">
+        <img src={images[activeIdx]} alt={listing.title} className="hp-modal-img-main" />
+      </div>
+      {images.length > 1 && (
+        <div className="hp-modal-img-thumbs">
+          <div className="hp-modal-img-thumbs-track">
+            {images.map((img, idx) => (
+              <div
+                key={idx}
+                className={`hp-modal-img-thumb-wrap${activeIdx === idx ? ' active' : ''}`}
+                onClick={() => setActiveIdx(idx)}
+              >
+                <img src={img} alt={`Thumb ${idx + 1}`} className="hp-modal-img-thumb" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Custom House Emoji Icon for PG listings ──
 const houseIcon = L.divIcon({
@@ -196,7 +232,22 @@ function FitListingsBounds({ listings }) {
 
 // Removed MarkerWrapper completely to avoid React-Leaflet Context crashes.
 
+// ── Helper to build full address string ──
+const buildFullAddress = (pg) => {
+  if (!pg) return '';
+  const parts = [
+    pg.plotNumber,
+    pg.street,
+    pg.landmark ? `(near ${pg.landmark})` : '',
+    pg.area,
+    pg.city,
+    pg.pinCode
+  ].filter(Boolean);
+  return parts.join(', ');
+};
+
 export default function ExploreMap() {
+  const navigate = useNavigate();
   const [scrolled,       setScrolled]       = useState(false);
   const [user,           setUser]           = useState(null);
   const [showDropdown,   setShowDropdown]   = useState(false);
@@ -208,42 +259,96 @@ export default function ExploreMap() {
   const [userHeading,    setUserHeading]    = useState(null);
   const [dijkstraResult, setDijkstraResult] = useState(null);
   const [selectedLinePG, setSelectedLinePG] = useState(null); // PG to draw line to
-  const [routePath, setRoutePath] = useState(null); // road path from routing API
+  const [fullSelectedPG, setFullSelectedPG] = useState(null); // Fetched full details for the selected PG
+  const [routePath,      setRoutePath]      = useState(null); // road path from routing API
+  const [savedIds,       setSavedIds]       = useState([]);   // track which PGs are in user's list
+  const [selectedListing, setSelectedListing] = useState(null); // Full detail modal state
+  const [loadingDetail, setLoadingDetail] = useState(null);
+  const [online, setOnline] = useState(isOnline());
 
   useEffect(() => {
+    // Auth guard — redirect to login if not logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login', { replace: true });
+      return;
+    }
+
     const onScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener('scroll', onScroll);
 
-    const token    = localStorage.getItem('token');
+    // Online/offline status listeners
+    const handleOnline  = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener('online',  handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     const userName = localStorage.getItem('userName');
     if (token && userName) {
       setUser({ name: userName, initial: userName.charAt(0).toUpperCase() });
     }
 
-    // Fetch vacant listings
-    axios.get('http://localhost:4000/api/listings?vacant=true')
-      .then(res => setListings(res.data))
+    // Fetch vacant listings — returns cached instantly, refreshes in background
+    cachedGet(
+      'http://localhost:4000/api/listings?vacant=true&refresh=true',
+      null,
+      (fresh) => setListings(fresh)      // ← background refresh callback
+    )
+      .then(data => { if (data) setListings(data); })
       .catch(err => console.error('Error fetching listings:', err));
 
-    return () => window.removeEventListener('scroll', onScroll);
+    // Fetch saved PG IDs (if logged in)
+    if (token) {
+      cachedGet(
+        'http://localhost:4000/api/auth/saved-pgs',
+        token,
+        (fresh) => setSavedIds(fresh)    // ← background refresh callback
+      )
+        .then(data => { if (data) setSavedIds(data); })
+        .catch(err => console.error('Error fetching saved IDs:', err));
+    }
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('online',  handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   // Reverse geocode when user position is found
   useEffect(() => {
     if (!userPos) return;
-    fetch(`https://nominatim.openstreetmap.org/reverse?lat=${userPos[0]}&lon=${userPos[1]}&format=json`)
-      .then(r => r.json())
-      .then(data => {
+
+    const controller = new AbortController();
+    
+    // Use a slight delay or just direct fetch with high priority
+    const fetchAddress = async () => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${userPos[0]}&lon=${userPos[1]}&format=json&zoom=18&addressdetails=1`,
+          { signal: controller.signal }
+        );
+        const data = await response.json();
         const a = data.address || {};
         const parts = [
+          a.house_number,
           a.road || a.pedestrian || a.footway,
           a.suburb || a.neighbourhood || a.village,
           a.city || a.town || a.county,
           a.state,
+          a.postcode
         ].filter(Boolean);
-        setUserAddress(parts.slice(0, 3).join(', ') || data.display_name?.split(',').slice(0, 2).join(', '));
-      })
-      .catch(() => setUserAddress(null));
+        setUserAddress(parts.join(', ') || data.display_name);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Reverse geocoding error:', err);
+          setUserAddress(null);
+        }
+      }
+    };
+
+    fetchAddress();
+    return () => controller.abort();
   }, [userPos]);
 
   // Re-run Dijkstra whenever user position or listings change
@@ -255,6 +360,21 @@ export default function ExploreMap() {
       if (result?.nearest?.pg) setSelectedLinePG(result.nearest.pg);
     }
   }, [userPos, listings]);
+
+  // Fetch full details of the selected PG (to get Plot, Street, etc.)
+  useEffect(() => {
+    if (!selectedLinePG?._id) {
+      setFullSelectedPG(null);
+      return;
+    }
+    cachedGet(
+      `http://localhost:4000/api/listings/${selectedLinePG._id}`,
+      null,
+      (fresh) => setFullSelectedPG(fresh)  // background refresh
+    )
+      .then(data => { if (data) setFullSelectedPG(data); })
+      .catch(err => console.error('Error fetching full PG details:', err));
+  }, [selectedLinePG]);
 
   // Fetch actual road route (not straight line) between user and selected PG
   useEffect(() => {
@@ -297,14 +417,41 @@ export default function ExploreMap() {
     localStorage.removeItem('token');
     localStorage.removeItem('userRole');
     localStorage.removeItem('userName');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('pg_session');
+    localStorage.removeItem('cached_saved_listings');
+    localStorage.removeItem('cached_saved_ids');
     setUser(null);
     setShowDropdown(false);
   };
 
   const defaultCenter = [20.5937, 78.9629]; // India center fallback
 
+  // Offline status banner styles (inline to avoid CSS changes)
+  const offlineBannerStyle = {
+    display: online ? 'none' : 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: '#fef3c7',
+    color: '#92400e',
+    borderBottom: '1px solid #fde68a',
+    padding: '8px 20px',
+    fontSize: '0.82rem',
+    fontWeight: 600,
+    position: 'sticky',
+    top: 0,
+    zIndex: 1100,
+  };
+
   return (
     <div className="map-page-root">
+      {/* ── Offline Banner ── */}
+      <div style={offlineBannerStyle}>
+        <span>📡</span>
+        <span>You're offline — showing cached data. Changes will sync when you reconnect.</span>
+      </div>
+
       {/* ── Navbar ── */}
       <nav className={`hp-nav ${scrolled ? 'hp-nav--scrolled' : ''}`}>
         <div className="hp-nav-inner">
@@ -378,95 +525,123 @@ export default function ExploreMap() {
             {/* 🏠 PG Markers */}
             {(() => {
               const seenCoords = {};
-              return listings.filter(pg => pg.lat && pg.lng).map((pg) => {
-                let { lat, lng } = pg;
-                // Form a key for identical coordinates up to ~11 cm precision
-                const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-                if (seenCoords[key] !== undefined) {
-                  seenCoords[key]++;
-                  // Add a tiny deterministic diagonal offset (approx 11 meters) for each overlapping pin
-                  lat += seenCoords[key] * 0.0001;
-                  lng += seenCoords[key] * 0.0001;
-                } else {
-                  seenCoords[key] = 0;
-                }
+              return (listings || [])
+                .filter(pg => pg && typeof pg.lat === 'number' && typeof pg.lng === 'number')
+                .map((pg) => {
+                  let lat = pg.lat;
+                  let lng = pg.lng;
+                  // Form a key for identical coordinates up to ~11 cm precision
+                  const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+                  if (seenCoords[key] !== undefined) {
+                    seenCoords[key]++;
+                    // Add a tiny deterministic diagonal offset (approx 11 meters) for each overlapping pin
+                    lat += seenCoords[key] * 0.0001;
+                    lng += seenCoords[key] * 0.0001;
+                  } else {
+                    seenCoords[key] = 0;
+                  }
 
-                return (
-                  <Marker 
-                    key={pg._id} 
-                    position={[lat, lng]} 
-                    icon={houseIcon}
-                    eventHandlers={{
-                      click: () => {
-                        if (userPos) setSelectedLinePG(pg);
-                      },
-                      add: (e) => {
-                        const marker = e.target;
-                        const el = marker.getElement();
-                        if (el) {
-                          let timeoutId;
-                          el.addEventListener('mouseenter', () => {
-                            clearTimeout(timeoutId);
-                            marker.openPopup();
-                            setTimeout(() => {
-                              const popupEl = marker.getPopup()?.getElement();
-                              if (popupEl) {
-                                popupEl.onmouseenter = () => clearTimeout(timeoutId);
-                                popupEl.onmouseleave = () => { timeoutId = setTimeout(() => marker.closePopup(), 200); };
-                              }
-                            }, 10);
-                          });
-                          el.addEventListener('mouseleave', () => {
-                            timeoutId = setTimeout(() => marker.closePopup(), 200);
-                          });
+                  return (
+                    <Marker 
+                      key={pg._id} 
+                      position={[lat, lng]} 
+                      icon={houseIcon}
+                      eventHandlers={{
+                        click: () => {
+                          if (userPos) setSelectedLinePG(pg);
+                        },
+                        add: (e) => {
+                          const marker = e.target;
+                          const el = marker.getElement();
+                          if (el) {
+                            let timeoutId;
+                            el.addEventListener('mouseenter', () => {
+                              clearTimeout(timeoutId);
+                              marker.openPopup();
+                              setTimeout(() => {
+                                const popupEl = marker.getPopup()?.getElement();
+                                if (popupEl) {
+                                  popupEl.onmouseenter = () => clearTimeout(timeoutId);
+                                  popupEl.onmouseleave = () => { timeoutId = setTimeout(() => marker.closePopup(), 200); };
+                                }
+                              }, 10);
+                            });
+                            el.addEventListener('mouseleave', () => {
+                              timeoutId = setTimeout(() => marker.closePopup(), 200);
+                            });
+                          }
                         }
-                      }
-                    }}
-                  >
-                    <Popup autoPan={false} closeButton={false}>
-                      <div className="pg-popup-wide">
-                        <div className="pg-popup-img-wrap">
-                          <img src={pg.image} alt={pg.title} className="pg-popup-img" />
-                        </div>
-                        <div className="pg-popup-info">
-                          <h4>{pg.title}</h4>
-                          <p className="pg-popup-price">{pg.price}</p>
-                          <p className="pg-popup-loc">📍 {pg.location}</p>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: '6px' }}>
-                            <button 
-                              onClick={async () => {
-                                const token = localStorage.getItem('token');
-                                if (!token) {
-                                  alert('Please login to save PGs to your list.');
-                                  return;
-                                }
-                                try {
-                                  await axios.post(
-                                    `http://localhost:4000/api/auth/saved-pgs/${pg._id}`,
-                                    {},
-                                    { headers: { Authorization: `Bearer ${token}` } }
-                                  );
-                                  alert('PG added to your list successfully!');
-                                } catch (err) {
-                                  if (err.response?.status === 409) {
-                                    alert('This PG is already in your list.');
-                                  } else {
-                                    alert('Failed to save PG. Please try again.');
-                                  }
-                                }
-                              }}
-                              className="hp-btn hp-btn--red" 
-                              style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', border: 'none', cursor: 'pointer' }}
-                            >
-                              Add to PG List
-                            </button>
+                      }}
+                    >
+                      <Popup autoPan={false} closeButton={false}>
+                        <div className="pg-popup-wide">
+                          <div className="pg-popup-img-wrap">
+                            <SmartImage src={pg.image} alt={pg.title} className="pg-popup-img" fallback="/pg_card_1.png" />
+                          </div>
+                          <div className="pg-popup-info">
+                            <h4>{pg.title}</h4>
+                            <p className="pg-popup-price">{pg.price}</p>
+                            <div className="pg-popup-type-tag" style={{ marginBottom: '12px' }}>
+                              {pg.pgType === 'boys' ? '👦 Boys Only' : pg.pgType === 'girls' ? '👧 Girls Only' : '👥 Co-ed'}
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '12px' }}>
+                              {savedIds.includes(pg._id) ? (
+                                <div 
+                                  className="hp-btn" 
+                                  style={{ 
+                                    padding: '0.4rem 0.8rem', fontSize: '0.8rem', 
+                                    background: '#f1f5f9', color: '#64748b', 
+                                    border: '1px solid #e2e8f0', cursor: 'default',
+                                    display: 'flex', alignItems: 'center', gap: '4px',
+                                    fontWeight: 600
+                                  }}
+                                >
+                                  <span>✅Added</span>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                  </svg>
+                                </div>
+                              ) : (
+                                <button 
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const token = localStorage.getItem('token');
+                                    if (!token) {
+                                      alert('Please login to save PGs to your list.');
+                                      return;
+                                    }
+                                    // Optimistic UI update immediately
+                                    const newSavedIds = [...savedIds, pg._id];
+                                    setSavedIds(newSavedIds);
+                                    try {
+                                      await cachedMutate(
+                                        'POST',
+                                        `http://localhost:4000/api/auth/saved-pgs/${pg._id}`,
+                                        {},
+                                        token,
+                                        () => console.log('[Offline] Save PG queued for sync')
+                                      );
+                                    } catch (err) {
+                                      console.error('Error saving PG:', err);
+                                      // Revert optimistic update on hard error
+                                      if (err.response?.status !== 409) {
+                                        setSavedIds(prev => prev.filter(id => id !== pg._id));
+                                      }
+                                    }
+                                  }}
+                                  className="hp-btn hp-btn--red pg-popup-btn"
+                                >
+                                  + Add to My List
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Popup>
-                  </Marker>
-                );
-              });
+                      </Popup>
+                    </Marker>
+                  );
+                });
             })()}
 
             {/* 📍 User's live location marker */}
@@ -507,9 +682,6 @@ export default function ExploreMap() {
             {/* Current Location */}
             <div className="map-routing-cell">
               <div className="map-routing-cell-label">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
-                </svg>
                 Your Current Location
               </div>
               <div className="map-routing-cell-value">
@@ -519,33 +691,17 @@ export default function ExploreMap() {
                       : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Detecting address…</span>)
                   : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Enable location first</span>
                 }
-                {userPos && (
-                  <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#64748b' }}>
-                    {`Lat ${userPos[0].toFixed(5)}, Lng ${userPos[1].toFixed(5)}`}
-                    {userAccuracy ? ` | Accuracy ~${Math.round(userAccuracy)}m` : ''}
-                    {Number.isFinite(userHeading) ? ` | Heading ${Math.round(userHeading)}°` : ''}
-                  </div>
-                )}
-                {!userPos && locStatus === 'error' && (
-                  <div style={{ marginTop: '6px', fontSize: '0.78rem', color: '#dc2626' }}>
-                    Location access denied/unavailable. Allow location in browser site settings.
-                  </div>
-                )}
               </div>
             </div>
 
             {/* Selected / Nearest PG */}
             <div className="map-routing-cell">
               <div className="map-routing-cell-label">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/>
-                  <path d="M9 21V12h6v9"/>
-                </svg>
                 {selectedLinePG ? 'Selected PG' : 'Nearest PG'}
               </div>
               <div className="map-routing-cell-value">
                 {selectedLinePG
-                  ? selectedLinePG.title
+                  ? (fullSelectedPG ? buildFullAddress(fullSelectedPG) : selectedLinePG.location)
                   : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>
                       {userPos ? 'Calculating…' : 'Enable location first'}
                     </span>
@@ -556,9 +712,6 @@ export default function ExploreMap() {
             {/* Distance */}
             <div className="map-routing-cell">
               <div className="map-routing-cell-label">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
                 Approx. Distance
               </div>
               <div className="map-routing-distance">
@@ -579,7 +732,7 @@ export default function ExploreMap() {
             </span>
             {selectedLinePG && userPos && (
               <a
-                href={`https://www.google.com/maps/dir/${userPos[0]},${userPos[1]}/${selectedLinePG.lat},${selectedLinePG.lng}`}
+                href={`https://www.google.com/maps/dir/?api=1&origin=${userPos[0]},${userPos[1]}&destination=${selectedLinePG.lat},${selectedLinePG.lng}&travelmode=driving`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="map-gmaps-btn"
@@ -596,6 +749,103 @@ export default function ExploreMap() {
           </div>
         </div>
       </main>
+
+      {/* ── Property Details Modal (Same as PGListings) ── */}
+      {selectedListing && (
+        <div className="hp-modal-overlay" onClick={() => setSelectedListing(null)} style={{ zIndex: 9999 }}>
+          <div className="hp-modal-content hp-modal-content--details" onClick={(e) => e.stopPropagation()}>
+            <div className="hp-modal-header">
+              <h2>Property Details</h2>
+              <button className="hp-modal-close-icon" onClick={() => setSelectedListing(null)}>✕</button>
+            </div>
+
+            <div className="hp-modal-body">
+              <ModalGallery listing={selectedListing} />
+              <div className="hp-modal-info-grid">
+                <div className="hp-modal-info-main">
+                  <h1 className="hp-modal-detail-title">{selectedListing.title}</h1>
+                  <div className="hp-modal-detail-price-row">
+                    <span className="hp-modal-detail-price">{selectedListing.price}</span>
+                    <span className="hp-modal-detail-separator">|</span>
+                    <span className={`hp-modal-pgtype-badge hp-modal-pgtype-badge--${selectedListing.pgType || 'co-ed'}`}>
+                      {selectedListing.pgType === 'boys' ? '👦 Boys Only' : selectedListing.pgType === 'girls' ? '👧 Girls Only' : '👥 Co-ed'}
+                    </span>
+                  </div>
+
+                  {selectedListing.amenities &&
+                    (selectedListing.amenities.wifi || selectedListing.amenities.ac ||
+                     selectedListing.amenities.food || selectedListing.amenities.cctv) && (
+                    <>
+                      <h3 className="hp-modal-section-title hp-modal-section-title--red-pipe" style={{ marginTop: '1.5rem' }}>Amenities</h3>
+                      <div className="hp-amenity-pill-grid">
+                        {selectedListing.amenities.wifi && <div className="hp-amenity-pill">📶 WiFi</div>}
+                        {selectedListing.amenities.ac && <div className="hp-amenity-pill">❄️ AC</div>}
+                        {selectedListing.amenities.food && <div className="hp-amenity-pill">🥘 Food</div>}
+                        {selectedListing.amenities.cctv && <div className="hp-amenity-pill">📷 CCTV</div>}
+                      </div>
+                    </>
+                  )}
+
+                  <h3 className="hp-modal-section-title hp-modal-section-title--red-pipe" style={{ marginTop: '1.5rem' }}>Description</h3>
+                  <p className="hp-modal-text">
+                    {selectedListing.description || 'No description provided for this property.'}
+                  </p>
+                </div>
+
+                <div className="hp-modal-info-sidebar">
+                  {selectedListing.rooms && selectedListing.rooms.length > 0 && (
+                    <>
+                      <h3 className="hp-modal-section-title hp-modal-section-title--red-pipe">Room Options</h3>
+                      <div className="hp-room-cards">
+                        {selectedListing.rooms.map((room, idx) => (
+                          <div key={idx} className="hp-room-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.7rem 1rem' }}>
+                            <span className="hp-room-type">{room.roomType === 'Apartment' ? '🏢 Apartment' : '🛏️ PG'}</span>
+                            <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 500 }}>
+                              {room.roomType === 'Apartment' ? `${room.totalRooms} BHK` : `${room.totalRooms} Rooms`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  <h3 className="hp-modal-section-title hp-modal-section-title--red-pipe" style={{ marginTop: '1.5rem' }}>Location Details</h3>
+                  <div className="hp-modal-location-text">
+                    {[selectedListing.plotNumber ? `Plot ${selectedListing.plotNumber}` : '', selectedListing.street, selectedListing.area, selectedListing.city].filter(Boolean).join(', ') || selectedListing.location}
+                  </div>
+                  {selectedListing.landmark && <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>📍 Near {selectedListing.landmark}</div>}
+
+                  <div style={{ marginTop: '2rem' }}>
+                    <h3 className="hp-modal-section-title hp-modal-section-title--red-pipe">Owner & Contact</h3>
+                    <div className="hp-modal-owner-card">
+                      <div className="hp-modal-owner-row">
+                        <div className="hp-modal-owner-avatar">👤</div>
+                        <div>
+                          <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Managed by</div>
+                          <div className="hp-modal-owner-name-text">{selectedListing.ownerName || 'Owner'}</div>
+                        </div>
+                      </div>
+                        <div className="hp-modal-contact-number">
+                          {selectedListing.contactNumber
+                            ? (() => {
+                                const raw = selectedListing.contactNumber.replace(/\D/g, '');
+                                const digits = raw.startsWith('91') && raw.length > 10 ? raw.slice(2) : raw;
+                                return `+91 ${digits}`;
+                              })()
+                            : 'Not provided'}
+                        </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="hp-modal-footer-new">
+              <button className="hp-btn hp-btn--red hp-modal-close-btn-new" onClick={() => setSelectedListing(null)}>Close Details</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="map-footer">

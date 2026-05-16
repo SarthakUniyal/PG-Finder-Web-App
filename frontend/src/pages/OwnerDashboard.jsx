@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PGLogo from '../components/PGLogo';
+import SmartImage from '../components/SmartImage';
+import { cachedGet, cachedMutate, isOnline } from '../utils/offlineManager';
 import '../style/OwnerDashboard.css';
 
 /* ──────────────────────────────────────────────────────────
@@ -32,9 +34,12 @@ function CreatePGModal({ onClose, onCreated, initialData }) {
     description: initialData?.description || '',
   });
   const [location, setLocation] = useState({
-    city: initialData?.city || '', area: initialData?.area || '', 
-    street: initialData?.street || '', plotNumber: initialData?.plotNumber || '',
-    landmark: initialData?.landmark || '', pinCode: initialData?.pinCode || '',
+    city: initialData?.city || '',
+    area: initialData?.area || '',
+    street: initialData?.street || '',
+    plotNumber: initialData?.plotNumber || '',
+    landmark: initialData?.landmark || '',
+    pinCode: initialData?.pinCode || '',
   });
   const [rooms, setRooms]         = useState(initialData?.rooms?.length ? initialData.rooms : [defaultRoom()]);
   const [amenities, setAmenities] = useState(initialData?.amenities || { wifi: false, ac: false, food: false, cctv: false });
@@ -42,10 +47,53 @@ function CreatePGModal({ onClose, onCreated, initialData }) {
   const [isVacant, setIsVacant]   = useState(initialData ? initialData.isVacant : true);
   const fileRef = useRef();
 
+  // Handle remounting / initialData changes explicitly
+  useEffect(() => {
+    if (initialData) {
+      setBasic({
+        ownerName: initialData.ownerName || localStorage.getItem('userName') || '',
+        contactNumber: initialData.contactNumber || '',
+        pgType: initialData.pgType || 'co-ed',
+        description: initialData.description || '',
+      });
+      setLocation({
+        city: initialData.city || '',
+        area: initialData.area || '',
+        street: initialData.street || '',
+        plotNumber: initialData.plotNumber || '',
+        landmark: initialData.landmark || '',
+        pinCode: initialData.pinCode || '',
+      });
+      setRooms(initialData.rooms?.length ? initialData.rooms : [defaultRoom()]);
+      setAmenities(initialData.amenities || { wifi: false, ac: false, food: false, cctv: false });
+      setImages(initialData.images || []);
+      setIsVacant(initialData.isVacant !== undefined ? initialData.isVacant : true);
+    } else {
+      // RESET TO DEFAULT FOR NEW PG
+      setBasic({
+        ownerName: localStorage.getItem('userName') || '',
+        contactNumber: '',
+        pgType: 'co-ed',
+        description: '',
+      });
+      setLocation({
+        city: '', area: '', street: '', plotNumber: '', landmark: '', pinCode: '',
+      });
+      setRooms([defaultRoom()]);
+      setAmenities({ wifi: false, ac: false, food: false, cctv: false });
+      setImages([]);
+      setIsVacant(true);
+    }
+    setStep(0); // Always start at step 0 when modal opens
+  }, [initialData]);
+
   const updateBasic    = (k, v) => setBasic(b => ({ ...b, [k]: v }));
   const updateLocation = (k, v) => setLocation(l => ({ ...l, [k]: v }));
   const updateRoom     = (i, k, v) => setRooms(r => r.map((rm, idx) => idx === i ? { ...rm, [k]: v } : rm));
   const toggleAmenity  = (k)     => setAmenities(a => ({ ...a, [k]: !a[k] }));
+
+  const MAX_IMAGE_SIZE_MB = 2; // 2 MB
+  const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 
   const toBase64 = file => new Promise((res, rej) => {
     const reader = new FileReader();
@@ -55,9 +103,22 @@ function CreatePGModal({ onClose, onCreated, initialData }) {
   });
 
   const handleFiles = useCallback(async (files) => {
-    const arr  = Array.from(files).slice(0, 8 - images.length);
-    const b64s = await Promise.all(arr.map(toBase64));
-    setImages(prev => [...prev, ...b64s]);
+    const newImages = [];
+    const filesToProcess = Array.from(files).slice(0, 4 - images.length);
+
+    for (const file of filesToProcess) {
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        setError(`Image "${file.name}" is too large (max ${MAX_IMAGE_SIZE_MB}MB).`);
+        continue;
+      }
+      try {
+        const b64 = await toBase64(file);
+        newImages.push(b64);
+      } catch (e) {
+        setError(`Failed to read image "${file.name}".`);
+      }
+    }
+    setImages(prev => [...prev, ...newImages]);
   }, [images.length]);
 
   const onDrop = e => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); };
@@ -70,30 +131,27 @@ function CreatePGModal({ onClose, onCreated, initialData }) {
     
     setError(''); setSaving(true);
     try {
+      // Build a detailed query for geocoding
+      const detailedParts = [
+        location.plotNumber,
+        location.street,
+        location.landmark,
+        location.area,
+        location.city,
+        location.pinCode,
+        'India',
+      ].filter(Boolean);
+      const detailedQuery = detailedParts.join(', ');
+
       // Geocode the address as precisely as possible
       let lat = null, lng = null;
       try {
-        const userAgent = 'PGFinderApp/1.0 (+https://example.com)';
-
-        // Build a very detailed query including landmark and pin
-        const detailedParts = [
-          location.plotNumber,
-          location.street,
-          location.landmark,
-          location.area,
-          location.city,
-          location.pinCode,
-          'Uttarakhand',
-          'India',
-        ].filter(Boolean);
-        const detailedQuery = detailedParts.join(', ');
-
         const searchNominatim = async (query) => {
           const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=${encodeURIComponent(
             query,
           )}`;
           const res = await axios.get(url, {
-            headers: { 'User-Agent': userAgent },
+            headers: { 'User-Agent': 'PG-Finder-App/1.0 (contact@example.com)' },
           });
           if (Array.isArray(res.data) && res.data.length > 0) {
             return {
@@ -104,40 +162,21 @@ function CreatePGModal({ onClose, onCreated, initialData }) {
           return null;
         };
 
-        // 1) Try full detailed query first (best accuracy)
-        if (detailedQuery) {
-          const best = await searchNominatim(detailedQuery);
-          if (best) {
-            lat = best.lat;
-            lng = best.lng;
-          }
-        }
+        // Attempt geocoding with various levels of detail
+        const queries = [
+          detailedQuery,
+          [location.plotNumber, location.street, location.area, location.city].filter(Boolean).join(', '),
+          [location.area, location.city, 'India'].filter(Boolean).join(', '),
+        ];
 
-        // 2) Fallback: plot + street + area + city (without landmark/pin) if no hit
-        if ((!lat || !lng) && (location.street || location.plotNumber)) {
-          const parts = [
-            location.plotNumber,
-            location.street,
-            location.area,
-            location.city,
-          ].filter(Boolean);
-          const midQuery = parts.join(', ');
-          const mid = await searchNominatim(midQuery);
-          if (mid) {
-            lat = mid.lat;
-            lng = mid.lng;
-          }
-        }
-
-        // 3) Last fallback: just area + city
-        if ((!lat || !lng) && (location.area || location.city)) {
-          const simpleQuery = [location.area, location.city, 'India']
-            .filter(Boolean)
-            .join(', ');
-          const simple = await searchNominatim(simpleQuery);
-          if (simple) {
-            lat = simple.lat;
-            lng = simple.lng;
+        for (const q of queries) {
+          if (q) {
+            const result = await searchNominatim(q);
+            if (result) {
+              lat = result.lat;
+              lng = result.lng;
+              break; // Found a good match, stop trying other queries
+            }
           }
         }
 
@@ -178,15 +217,28 @@ function CreatePGModal({ onClose, onCreated, initialData }) {
       onCreated(res.data, !!initialData);
       onClose();
     } catch (err) {
-      setError(err.response?.data?.msg || 'Failed to save PG.');
+      if (axios.isAxiosError(err)) {
+        if (err.response) {
+          // Server responded with a status other than 2xx
+          setError(err.response.data?.msg || `Server error: ${err.response.status}`);
+        } else if (err.request) {
+          // Request was made but no response received
+          setError('Network error: No response from server. Please check your internet connection.');
+        } else {
+          // Something else happened while setting up the request
+          setError(`Error: ${err.message}`);
+        }
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
     } finally { setSaving(false); }
   };
 
   const STEPS     = ['Basic Info', 'Location', 'Rooms', 'Amenities', 'Photos & Status'];
   const canNext   = [
-    () => basic.ownerName.trim() && basic.contactNumber.trim(),
-    () => location.city.trim() && location.area.trim(),
-    () => rooms.every(r => r.rent),
+    () => basic.ownerName && basic.ownerName.trim() && basic.contactNumber && basic.contactNumber.trim(),
+    () => location.city && location.city.trim() && location.area && location.area.trim(),
+    () => rooms && rooms.length > 0 && rooms.every(r => r && r.rent),
     () => true,
     () => true,
   ];
@@ -293,6 +345,9 @@ function CreatePGModal({ onClose, onCreated, initialData }) {
                 <div className="od-room-card" key={i}>
                   <div className="od-room-card-header">
                     <span className="od-room-label">Category Details</span>
+                    {rooms.length > 1 && (
+                      <button className="od-room-del" onClick={() => setRooms(r => r.filter((_, idx) => idx !== i))}>✕</button>
+                    )}
                   </div>
                   <div className="od-form-grid od-form-grid--3">
                     <div className="od-form-col">
@@ -320,6 +375,11 @@ function CreatePGModal({ onClose, onCreated, initialData }) {
                   </div>
                 </div>
               ))}
+              {rooms.length < 5 && (
+                <button className="od-btn-add-room" onClick={() => setRooms(r => [...r, defaultRoom()])}>
+                  + Add Another Room Category
+                </button>
+              )}
             </>
           )}
 
@@ -351,7 +411,7 @@ function CreatePGModal({ onClose, onCreated, initialData }) {
                 onClick={() => fileRef.current.click()}>
                 <div className="od-dropzone-icon">🖼️</div>
                 <p>Drag & drop images here, or <span>browse files</span></p>
-                <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>JPEG, PNG — up to 8 images</p>
+                <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>JPEG, PNG — up to 4 images</p>
                 <input ref={fileRef} type="file" multiple accept="image/*" style={{ display: 'none' }}
                   onChange={e => handleFiles(e.target.files)} />
               </div>
@@ -455,25 +515,48 @@ export default function OwnerDashboard() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [deletePGId, setDeletePGId]   = useState(null);
 
-  const userName = localStorage.getItem('userName') || 'Owner';
-  const token    = localStorage.getItem('token');
-  const role     = localStorage.getItem('userRole');
+  const userName  = localStorage.getItem('userName')  || 'Owner';
+  const userEmail  = localStorage.getItem('userEmail') || ((() => { try { return JSON.parse(localStorage.getItem('pg_session') || '{}').email || ''; } catch { return ''; } })());
+  const token      = localStorage.getItem('token');
+  const role       = localStorage.getItem('userRole');
   const initial  = userName.charAt(0).toUpperCase();
+  const [online, setOnline] = useState(isOnline());
 
   /* guard */
   useEffect(() => {
     if (!token || role !== 'owner') navigate('/login');
+    const handleOnline  = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener('online',  handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online',  handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [token, role, navigate]);
 
   /* fetch */
   const fetchListings = useCallback(async () => {
     setLoading(true);
+    // Safety: dismiss spinner after 4 s max so slow internet never hangs the dashboard
+    const loadingTimer = setTimeout(() => setLoading(false), 4000);
     try {
-      const res = await axios.get('http://localhost:4000/api/listings/owner', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setListings(res.data);
-    } catch { /* silent */ }
+      const data = await cachedGet(
+        'http://localhost:4000/api/listings/owner',
+        token,
+        // Called when background refresh completes — keeps dashboard in sync on slow mobile
+        (fresh) => {
+          setListings(Array.isArray(fresh) ? fresh : []);
+          setLoading(false);
+        }
+      );
+      clearTimeout(loadingTimer);
+      setListings(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Fetch listings error:', err);
+      setListings([]);
+    }
+    clearTimeout(loadingTimer);
     setLoading(false);
   }, [token]);
 
@@ -481,37 +564,102 @@ export default function OwnerDashboard() {
 
   /* toggle status */
   const toggleStatus = async id => {
+    // Optimistic UI update
+    setListings(l => l.map(pg => pg._id === id ? { ...pg, isVacant: !pg.isVacant } : pg));
     try {
-      const res = await axios.patch(`http://localhost:4000/api/listings/${id}/status`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setListings(l => l.map(pg => pg._id === id ? { ...pg, isVacant: res.data.isVacant } : pg));
-    } catch { alert('Failed to update status.'); }
+      const data = await cachedMutate(
+        'PATCH',
+        `http://localhost:4000/api/listings/${id}/status`,
+        {},
+        token,
+        () => console.log('[Offline] Toggle status queued for sync')
+      );
+      // If online, reconcile with server response
+      if (data) {
+        setListings(l => l.map(pg => pg._id === id ? { ...pg, isVacant: data.isVacant } : pg));
+      }
+    } catch {
+      // Revert on failure
+      setListings(l => l.map(pg => pg._id === id ? { ...pg, isVacant: !pg.isVacant } : pg));
+      alert('Failed to update status.');
+    }
   };
 
   /* delete */
   const deletePG = async () => {
     if (!deletePGId) return;
+    // Optimistic UI
+    const originalListings = [...listings];
+    setListings(l => l.filter(pg => pg._id !== deletePGId));
+    const idToDelete = deletePGId;
+    setDeletePGId(null);
     try {
-      await axios.delete(`http://localhost:4000/api/listings/${deletePGId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setListings(l => l.filter(pg => pg._id !== deletePGId));
-      setDeletePGId(null);
-    } catch { alert('Failed to delete.'); }
+      await cachedMutate(
+        'DELETE',
+        `http://localhost:4000/api/listings/${idToDelete}`,
+        null,
+        token,
+        () => console.log('[Offline] Delete PG queued for sync')
+      );
+    } catch (err) {
+      alert('Failed to delete PG. Please try again.');
+      console.error('Delete PG error:', err);
+      // Revert
+      setListings(originalListings);
+    }
   };
 
   /* logout */
   const handleLogout = () => {
-    localStorage.clear();
-    navigate('/');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('pg_session');  // clear auto-login session
+    navigate('/login', { replace: true });
+  };
+
+  /* derived stats helpers */
+  const buildFullAddress = (pg) => {
+    if (!pg) return '';
+    const parts = [
+      pg.plotNumber,
+      pg.street,
+      pg.landmark ? `(near ${pg.landmark})` : '',
+      pg.area,
+      pg.city,
+      pg.pinCode
+    ].filter(Boolean);
+    return parts.join(', ');
+  };
+
+  const calculatePGEarning = (pg) => {
+    if (pg?.rooms && pg.rooms.length > 0) {
+      return pg.rooms.reduce((s, r) => {
+        const multiplier = r.roomType === 'PG' ? Number(r?.totalRooms || 1) : 1;
+        return s + Number(r?.rent || 0) * multiplier;
+      }, 0);
+    }
+    // Fallback: parse price if rooms are missing (handles older data format)
+    if (pg?.price) {
+      const numericPrice = Number(pg.price.replace(/[^\d]/g, ''));
+      return isNaN(numericPrice) ? 0 : numericPrice;
+    }
+    return 0;
   };
 
   /* derived stats */
-  const totalRooms   = listings.reduce((a, pg) => a + pg.rooms.reduce((s, r) => s + Number(r.totalRooms || 0), 0), 0);
-  const vacantCount  = listings.filter(pg => pg.isVacant).length;
-  const totalEarning = listings.filter(pg => !pg.isVacant).flatMap(pg => pg.rooms || [])
-    .reduce((s, r) => s + Number(r.rent || 0) * Number(r.totalRooms || 1), 0);
+  const totalRooms      = (listings || []).reduce((a, pg) => a + (pg?.rooms || []).reduce((s, r) => s + Number(r?.totalRooms || 0), 0), 0);
+  const vacantCount     = (listings || []).filter(pg => pg?.isVacant).length;
+  const occupiedCount   = (listings || []).length - vacantCount;
+  
+  // Total actual monthly earnings (from occupied PGs)
+  const totalEarning    = (listings || []).filter(pg => pg && !pg.isVacant)
+    .reduce((acc, pg) => acc + calculatePGEarning(pg), 0);
+  
+  // Potential monthly earnings (from all PGs)
+  const potentialEarning = (listings || []).reduce((acc, pg) => acc + calculatePGEarning(pg), 0);
 
   /* ─── section renderer ─── */
   const renderSection = () => {
@@ -524,9 +672,9 @@ export default function OwnerDashboard() {
           <div className="od-stats-row">
             {[
               { label: 'Total Earnings', num: `₹${totalEarning.toLocaleString('en-IN')}`, icon: '💰', cls: 'blue',   link: 'View Report' },
-              { label: 'PG Listings',   num: listings.length,                              icon: '🏢', cls: 'red',    link: 'View All'    },
-              { label: 'Total Rooms',   num: totalRooms,                                   icon: '🛏️', cls: 'green',  link: 'Manage →'    },
-              { label: 'Vacant PGs',    num: vacantCount,                                  icon: '✅', cls: 'orange', link: 'See Vacant'  },
+              { label: 'Total Rooms',     num: totalRooms,                                   icon: '🛏️', cls: 'green',  link: 'Manage'      },
+              { label: 'Occupied PGs',    num: occupiedCount,                                icon: '🤝', cls: 'red',    link: 'Manage'      },
+              { label: 'Vacant PGs',      num: vacantCount,                                  icon: '✅', cls: 'orange', link: 'See Vacant'  },
             ].map(c => (
               <div key={c.label} className={`od-stat-card od-stat-card--${c.cls}`}>
                 <div className="od-stat-icon">{c.icon}</div>
@@ -555,11 +703,16 @@ export default function OwnerDashboard() {
                   {listings.slice(0, 4).map(pg => (
                     <div className="od-pg-item" key={pg._id}>
                       <div className="od-pg-thumb">
-                        {pg.image ? <img src={pg.image} alt={pg.title} /> : '🏠'}
+                        {pg.image 
+                          ? <SmartImage src={pg.image} alt={pg.title} fallback="" />
+                          : '🏠'
+                        }
                       </div>
                       <div className="od-pg-info">
                         <div className="od-pg-name">{pg.title}</div>
-                        <div className="od-pg-loc">📍 {pg.location || pg.city}</div>
+                        <div className="od-pg-loc">
+                          📍 {pg.city || pg.area || pg.location || 'Location N/A'}
+                        </div>
                         <div className="od-pg-price">{pg.price || 'Price N/A'}</div>
                       </div>
                       <span className={`od-pill ${pg.isVacant ? 'od-pill--green' : 'od-pill--red'}`}>
@@ -582,22 +735,36 @@ export default function OwnerDashboard() {
                 <div className="od-earnings-num">₹{totalEarning.toLocaleString('en-IN')}</div>
               </div>
               <table className="od-table" style={{ marginTop: '1rem' }}>
-                <thead><tr><th>Rooms</th><th>Category</th><th>Rent</th><th>Status</th></tr></thead>
+                <thead><tr><th>Category</th><th>Gender</th><th>Rooms</th><th>Rent</th><th>Status</th></tr></thead>
                 <tbody>
-                  {listings.flatMap(pg => (pg.rooms || []).map((r, i) => (
-                    <tr key={`${pg._id}-${i}`}>
-                      <td style={{ fontWeight: 600 }}>
-                        {r.roomType === 'Apartment' ? `${r.totalRooms} BHK` : r.totalRooms}
-                      </td>
-                      <td>{r.roomType}</td>
-                      <td style={{ color: '#e53528', fontWeight: 700 }}>₹{Number(r.rent || 0).toLocaleString('en-IN')}/mo</td>
-                      <td><span className={`od-pill ${pg.isVacant ? 'od-pill--green' : 'od-pill--red'}`}>
-                        {pg.isVacant ? 'Active' : 'Inactive'}
-                      </span></td>
-                    </tr>
-                  ))).slice(0, 5)}
-                  {listings.length === 0 && (
-                    <tr><td colSpan={4} style={{ textAlign: 'center', color: '#aaa', padding: '1rem' }}>No data yet</td></tr>
+                  {(listings || []).flatMap(pg => {
+                    const roomData = pg?.rooms && pg.rooms.length > 0 
+                  ? pg.rooms 
+                  : [{ 
+                      roomType: pg.rooms?.[0]?.roomType || (pg.title?.toLowerCase().includes('apartment') ? 'Apartment' : 'PG'), 
+                      totalRooms: 1, 
+                      rent: calculatePGEarning(pg), 
+                      isFallback: true 
+                    }];
+                    
+                    return roomData.map((r, i) => (
+                      <tr key={`${pg._id}-${i}`}>
+                        <td style={{ fontWeight: 600 }}>{r.roomType}</td>
+                        <td style={{ textTransform: 'capitalize' }}>
+                      {pg?.pgType === 'boys' ? 'Boys' : pg?.pgType === 'girls' ? 'Girls' : 'Co-ed'}
+                    </td>
+                    <td>{r.roomType === 'Apartment' ? `${r.totalRooms} BHK` : r.totalRooms}</td>
+                    <td style={{ color: '#e53528', fontWeight: 700 }}>₹{Number(r?.rent || 0).toLocaleString('en-IN')}</td>
+                        <td>
+                          <span className={`od-pill ${pg?.isVacant ? 'od-pill--green' : 'od-pill--red'}`}>
+                            {pg?.isVacant ? 'Vacant' : 'Occupied'}
+                          </span>
+                        </td>
+                      </tr>
+                    ));
+                  }).slice(0, 5)}
+                  {(listings || []).length === 0 && (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', color: '#aaa', padding: '1rem' }}>No data yet</td></tr>
                   )}
                 </tbody>
               </table>
@@ -625,12 +792,19 @@ export default function OwnerDashboard() {
               {listings.map(pg => (
                 <div className="od-pg-item" key={pg._id}>
                   <div className="od-pg-thumb">
-                    {pg.image ? <img src={pg.image} alt={pg.title} /> : '🏠'}
-                  </div>
+                      {pg.image 
+                        ? <SmartImage src={pg.image} alt={pg.title} fallback="" />
+                        : '🏠'
+                      }
+                    </div>
                   <div className="od-pg-info">
                     <div className="od-pg-name">{pg.title}</div>
-                    <div className="od-pg-loc">📍 {pg.location || pg.city} {pg.pgType ? `· ${pg.pgType}` : ''}</div>
-                    <div className="od-pg-price">{pg.price}</div>
+                    <div className="od-pg-loc">
+                      📍 {pg.city || pg.area || pg.location || 'Location N/A'} {pg.pgType ? `· ${pg.pgType}` : ''}
+                    </div>
+                    <div className="od-pg-price-row">
+                      <div className="od-pg-price">{pg.price}</div>
+                    </div>
                   </div>
                   <div className="od-pg-actions">
                     <span className={`od-pill ${pg.isVacant ? 'od-pill--green' : 'od-pill--red'}`}>
@@ -660,22 +834,65 @@ export default function OwnerDashboard() {
             <div className="od-earnings-num">₹{totalEarning.toLocaleString('en-IN')}</div>
           </div>
           <table className="od-table">
-            <thead><tr><th>Category</th><th>Rooms</th><th>Rent</th><th>Monthly Actual</th></tr></thead>
+            <thead><tr><th>Category</th><th>Gender</th><th>Rooms</th><th>Rent</th><th>Monthly Actual</th></tr></thead>
             <tbody>
-              {listings.flatMap(pg => (pg.rooms || []).map((r, i) => (
-                <tr key={`earn-${pg._id}-${i}`}>
-                  <td style={{ fontWeight: 600 }}>{r.roomType}</td>
-                  <td>{r.roomType === 'Apartment' ? `${r.totalRooms} BHK` : r.totalRooms}</td>
-                  <td style={{ color: '#e53528', fontWeight: 700 }}>₹{Number(r.rent || 0).toLocaleString('en-IN')}/mo</td>
-                  <td style={{ color: '#065f46', fontWeight: 700 }}>
-                    {pg.isVacant ? <span style={{ color: '#9ca3af', fontWeight: 400 }}>Vacant</span> : `₹${(Number(r.rent || 0) * Number(r.totalRooms || 1)).toLocaleString('en-IN')}`}
-                  </td>
-                </tr>
-              )))}
-              {listings.length === 0 && (
-                <tr><td colSpan={4} style={{ textAlign: 'center', color: '#aaa', padding: '2rem' }}>No data yet</td></tr>
+              {(listings || []).flatMap(pg => {
+                // Use actual rooms from DB, or a better fallback if missing
+                const roomData = pg?.rooms && pg.rooms.length > 0 
+                  ? pg.rooms 
+                  : [{ 
+                      roomType: pg.rooms?.[0]?.roomType || 'PG', 
+                      totalRooms: 1, 
+                      rent: calculatePGEarning(pg), 
+                      isFallback: true 
+                    }];
+                
+                return roomData.map((r, i) => {
+                  // For PG, rent is per room. For Apartment, rent is for the whole unit.
+                  const multiplier = r.roomType === 'PG' ? Number(r.totalRooms || 1) : 1;
+                  const actualEarning = Number(r?.rent || 0) * multiplier;
+
+                  return (
+                    <tr key={`earn-${pg._id}-${i}`}>
+                      <td style={{ fontWeight: 600 }}>
+                        {r.roomType}
+                      </td>
+                      <td style={{ textTransform: 'capitalize' }}>
+                        {pg?.pgType === 'boys' ? 'Boys' : pg?.pgType === 'girls' ? 'Girls' : 'Co-ed'}
+                      </td>
+                      <td>{r.roomType === 'Apartment' ? `${r.totalRooms} BHK` : r.totalRooms}</td>
+                      <td style={{ color: '#e53528', fontWeight: 700 }}>₹{Number(r?.rent || 0).toLocaleString('en-IN')}</td>
+                      <td style={{ color: '#065f46', fontWeight: 700 }}>
+                        {pg?.isVacant ? (
+                          <span style={{ color: '#9ca3af', fontWeight: 400 }}>Vacant</span>
+                        ) : (
+                          `₹${actualEarning.toLocaleString('en-IN')}`
+                        )}
+                      </td>
+                    </tr>
+                  );
+                });
+              })}
+              {(listings || []).length === 0 && (
+                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#aaa', padding: '2rem' }}>No data yet</td></tr>
               )}
             </tbody>
+            {listings?.length > 0 && (
+              <tfoot>
+                <tr style={{ background: '#f8fafc', borderTop: '2px solid #e53528' }}>
+                  <td colSpan={4} style={{ fontWeight: 800, textAlign: 'right', padding: '1rem', fontSize: '0.95rem' }}>Actual Monthly Revenue:</td>
+                  <td style={{ color: '#065f46', fontWeight: 800, fontSize: '1.1rem', padding: '1rem' }}>
+                    ₹{totalEarning.toLocaleString('en-IN')}
+                  </td>
+                </tr>
+                <tr style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                  <td colSpan={4} style={{ fontWeight: 600, textAlign: 'right', padding: '0.8rem', fontSize: '0.9rem', color: '#64748b' }}>Potential Monthly Revenue (100% Occupancy):</td>
+                  <td style={{ color: '#64748b', fontWeight: 600, fontSize: '0.95rem', padding: '0.8rem' }}>
+                    ₹{potentialEarning.toLocaleString('en-IN')}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       );
@@ -686,7 +903,7 @@ export default function OwnerDashboard() {
           <div className="od-card-header"><span className="od-card-title">⚙️ Account Settings</span></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div className="od-form-col"><label>Full Name</label><input defaultValue={userName} /></div>
-            <div className="od-form-col"><label>Email</label><input type="email" placeholder="your@email.com" /></div>
+            <div className="od-form-col"><label>Email</label><input type="email" defaultValue={userEmail} placeholder="your@email.com" /></div>
             <div className="od-form-col"><label>Change Password</label><input type="password" placeholder="New password" /></div>
             <button className="od-btn-primary" style={{ alignSelf: 'flex-start' }}>Save Changes</button>
             <hr style={{ border: 'none', borderTop: '1px solid #eee' }} />
@@ -733,6 +950,16 @@ export default function OwnerDashboard() {
           <div className="od-topbar-title">
             <h1>{NAV.find(n => n.id === section)?.label || 'Dashboard'}</h1>
             <p>Welcome back, {userName}!</p>
+            {!online && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                background: '#fef3c7', color: '#92400e',
+                borderRadius: '6px', padding: '3px 10px',
+                fontSize: '0.72rem', fontWeight: 700, marginTop: '4px'
+              }}>
+                📡 Offline — changes will sync when you reconnect
+              </span>
+            )}
           </div>
           <div className="od-topbar-right">
             <button className="od-add-pg-btn" onClick={() => setShowCreate(true)}>
@@ -766,6 +993,7 @@ export default function OwnerDashboard() {
       {/* Create PG Modal */}
       {showCreate && (
         <CreatePGModal
+          key={editingPG?._id || 'new'}
           initialData={editingPG}
           onClose={() => { setShowCreate(false); setEditingPG(null); }}
           onCreated={(savedPG, isEdit) => { 
