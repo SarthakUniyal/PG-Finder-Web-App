@@ -17,7 +17,11 @@ app.get('/health', (req, res) => {
   res.send('ok');
 });
 
-app.use(cors()); // Enable Cross-Origin Resource Sharing
+app.use(cors({
+  origin: "https://pg-finder-web-k8aomwmls-sarthakuniyals-projects.vercel.app",
+  credentials: true
+}));
+
 app.use(express.json({ limit: '50mb' })); // Allow the server to accept large JSON (base64 images)
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
