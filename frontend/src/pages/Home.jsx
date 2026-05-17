@@ -102,6 +102,7 @@ export default function Home() {
   const [user,     setUser]               = useState(null);
   const [showDropdown, setShowDropdown]   = useState(false);
   const [online,   setOnline]             = useState(isOnline());
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // ── Listings: lazy-init from localStorage so UI renders instantly ──
   const cached = readHomeCache();
@@ -251,8 +252,46 @@ export default function Home() {
               </>
             )}
           </div>
+          {/* Hamburger for mobile */}
+          <button
+            className={`hp-hamburger ${mobileMenuOpen ? 'open' : ''}`}
+            onClick={() => setMobileMenuOpen(v => !v)}
+            aria-label="Toggle menu"
+          >
+            <span /><span /><span />
+          </button>
         </div>
       </nav>
+
+      {/* ── Mobile Drawer ── */}
+      <div className={`hp-mobile-drawer ${mobileMenuOpen ? 'open' : ''}`}
+        onClick={e => { if (e.target === e.currentTarget) setMobileMenuOpen(false); }}
+      >
+        <div className="hp-mobile-drawer-inner">
+          <Link to="/"        className="hp-mobile-nav-link hp-mobile-nav-link--active" onClick={() => setMobileMenuOpen(false)}>🏠 Home</Link>
+          <Link to="/map"      className="hp-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>🗺️ Explore Map</Link>
+          <Link to="/listings" className="hp-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>📋 PG Listings</Link>
+          <Link to="/about"    className="hp-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>ℹ️ About Us</Link>
+          <Link to="/contact"  className="hp-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>📬 Contact Us</Link>
+          <div className="hp-mobile-nav-actions">
+            {user ? (
+              user.role === 'owner' ? (
+                <>
+                  <Link to="/owner-dashboard" className="hp-btn hp-btn--outline-red" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+                  <button className="hp-btn hp-btn--red" onClick={() => { handleLogout(); setMobileMenuOpen(false); }}>Log out</button>
+                </>
+              ) : (
+                <button className="hp-btn hp-btn--red" style={{ width: '100%' }} onClick={() => { handleLogout(); setMobileMenuOpen(false); }}>Log out</button>
+              )
+            ) : (
+              <>
+                <Link to="/login"  className="hp-btn hp-btn--outline-red" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+                <Link to="/signup" className="hp-btn hp-btn--red" onClick={() => setMobileMenuOpen(false)}>Register</Link>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* ── Hero ── */}
       <section className="hp-hero">

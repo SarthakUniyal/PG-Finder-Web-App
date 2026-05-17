@@ -351,7 +351,15 @@
   .auth-left { display: none; }
   .auth-right { width: 100%; min-height: calc(100vh - 64px); }
 }
-@media (max-width: 480px) {
-  .auth-right { padding: 2rem 1.5rem; }
+@media (max-width: 600px) {
+  .auth-right { padding: 2rem 1.5rem; min-height: calc(100vh - 64px); }
   .auth-navbar { padding: 0 1rem; }
+  .auth-form-title { font-size: 1.45rem; }
+  .auth-form-wrap { max-width: 100%; }
+  .account-type-group { grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+}
+@media (max-width: 400px) {
+  .auth-right { padding: 1.8rem 1rem; }
+  .auth-navbar-links { gap: 0.3rem; }
+  .auth-form-title { font-size: 1.3rem; }
 }

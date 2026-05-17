@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FiTarget, FiHeart, FiTrendingUp, FiUsers } from 'react-icons/fi';
 import PGLogo from '../components/PGLogo';
 import '../style/About.css';
+import '../style/HomePage.css';
 
 const teamMembers = [
   { id: 1, name: 'Sarah Johnson', role: 'Marketing Director', image: '/team_sarah.png' },
@@ -15,6 +16,7 @@ export default function About() {
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -75,8 +77,39 @@ export default function About() {
               </>
             )}
           </div>
+          {/* Hamburger for mobile */}
+          <button
+            className={`hp-hamburger ${mobileMenuOpen ? 'open' : ''}`}
+            onClick={() => setMobileMenuOpen(v => !v)}
+            aria-label="Toggle menu"
+          >
+            <span /><span /><span />
+          </button>
         </div>
       </nav>
+
+      {/* ── Mobile Drawer ── */}
+      <div className={`hp-mobile-drawer ${mobileMenuOpen ? 'open' : ''}`}
+        onClick={e => { if (e.target === e.currentTarget) setMobileMenuOpen(false); }}
+      >
+        <div className="hp-mobile-drawer-inner">
+          <Link to="/"        className="hp-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>🏠 Home</Link>
+          <Link to="/map"      className="hp-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>🗺️ Explore Map</Link>
+          <Link to="/listings" className="hp-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>📋 PG Listings</Link>
+          <Link to="/about"    className="hp-mobile-nav-link hp-mobile-nav-link--active" onClick={() => setMobileMenuOpen(false)}>ℹ️ About Us</Link>
+          <Link to="/contact"  className="hp-mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>📬 Contact Us</Link>
+          <div className="hp-mobile-nav-actions">
+            {user ? (
+              <button className="hp-btn hp-btn--red" style={{ width: '100%' }} onClick={() => { handleLogout(); setMobileMenuOpen(false); }}>Log out</button>
+            ) : (
+              <>
+                <Link to="/login"  className="hp-btn hp-btn--outline-red" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+                <Link to="/signup" className="hp-btn hp-btn--red" onClick={() => setMobileMenuOpen(false)}>Register</Link>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* ── Hero ── */}
       <header className="about-hero">

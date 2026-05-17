@@ -168,10 +168,28 @@
 /* Responsive */
 @media (max-width: 1024px) {
   .team-grid { grid-template-columns: repeat(2, 1fr); }
-  .about-split, .about-grid-2 { grid-template-columns: 1fr; gap: 3rem; }
+  .about-split, .about-grid-2 { grid-template-columns: 1fr; gap: 2.5rem; }
+}
+@media (max-width: 768px) {
+  .about-section { padding: 3.5rem 0; }
+  .about-inner { padding: 0 1.2rem; }
+  .about-hero { height: 280px; margin-top: 64px; }
+  .about-hero-title { font-size: 2.4rem; }
+  .about-hero-sub { font-size: 1rem; }
+  .about-section-title { font-size: 1.5rem; }
+  .about-header-center { margin-bottom: 2.5rem; }
 }
 @media (max-width: 600px) {
-  .team-grid { grid-template-columns: 1fr; }
-  .about-hero-title { font-size: 2.5rem; }
+  .team-grid { grid-template-columns: 1fr 1fr; }
+  .about-hero { height: 220px; }
+  .about-hero-title { font-size: 1.8rem; }
+  .about-hero-sub { font-size: 0.9rem; }
+  .about-section { padding: 2.5rem 0; }
   .about-card-split { flex-direction: column; text-align: center; }
+  .about-split, .about-grid-2 { gap: 2rem; }
+}
+@media (max-width: 400px) {
+  .team-grid { grid-template-columns: 1fr; }
+  .about-hero-title { font-size: 1.5rem; }
+  .about-inner { padding: 0 0.9rem; }
 }

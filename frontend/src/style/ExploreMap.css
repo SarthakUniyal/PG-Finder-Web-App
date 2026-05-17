@@ -162,10 +162,35 @@
   font-size: 0.85rem;
 }
 
+@media (max-width: 700px) {
+  .map-routing-grid { grid-template-columns: 1fr; }
+  .map-routing-cell { border-right: none; border-bottom: 1px solid #e8ecef; }
+  .map-routing-footer { flex-direction: column; align-items: flex-start; }
+}
 @media (max-width: 600px) {
   .pg-popup-wide { flex-direction: column; min-width: 200px; gap: 0.6rem; }
   .pg-popup-img-wrap { width: 100%; height: 120px; }
-  .map-title { font-size: 1.8rem; }
+  .map-title { font-size: 1.6rem; }
+  .map-sub { font-size: 0.9rem; }
+  .map-page-header { padding: 1rem 0; }
+  .map-header-inner { padding: 0 1rem; }
+  .map-view-container {
+    width: 100%;
+    border-radius: 0;
+    margin: 0 0 2rem 0;
+    border-left: none;
+    border-right: none;
+  }
+  .map-routing-panel {
+    width: 100%;
+    border-radius: 0;
+    margin: 0 0 2rem 0;
+    border-left: none;
+    border-right: none;
+  }
+  .map-routing-header { padding: 0.75rem 1rem; }
+  .map-routing-cell { padding: 0.85rem 1rem; }
+  .map-routing-footer { padding: 0.75rem 1rem; }
 }
 
 /* ── House Emoji Marker ── */

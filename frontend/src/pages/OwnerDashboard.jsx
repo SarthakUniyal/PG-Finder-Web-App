@@ -514,6 +514,7 @@ export default function OwnerDashboard() {
   const [editingPG, setEditingPG]   = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [deletePGId, setDeletePGId]   = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const userName  = localStorage.getItem('userName')  || 'Owner';
   const userEmail  = localStorage.getItem('userEmail') || ((() => { try { return JSON.parse(localStorage.getItem('pg_session') || '{}').email || ''; } catch { return ''; } })());
@@ -700,10 +701,11 @@ export default function OwnerDashboard() {
                 </div>
               ) : (
                 <div className="od-pg-list">
-                  {listings.slice(0, 4).map(pg => (
-                    <div className="od-pg-item" key={pg._id}>
+                {listings.slice(0, 4).map(pg => (
+                  <div className="od-pg-item" key={pg._id}>
+                    <div className="od-pg-item-top">
                       <div className="od-pg-thumb">
-                        {pg.image 
+                        {pg.image
                           ? <SmartImage src={pg.image} alt={pg.title} fallback="" />
                           : '🏠'
                         }
@@ -715,11 +717,12 @@ export default function OwnerDashboard() {
                         </div>
                         <div className="od-pg-price">{pg.price || 'Price N/A'}</div>
                       </div>
-                      <span className={`od-pill ${pg.isVacant ? 'od-pill--green' : 'od-pill--red'}`}>
+                      <span className={`od-pill ${pg.isVacant ? 'od-pill--green' : 'od-pill--red'} od-pill--compact`}>
                         {pg.isVacant ? '● Vacant' : '● Occupied'}
                       </span>
                     </div>
-                  ))}
+                  </div>
+                ))}
                 </div>
               )}
             </div>
@@ -734,6 +737,7 @@ export default function OwnerDashboard() {
                 <div className="od-earnings-label">Actual Monthly Revenue</div>
                 <div className="od-earnings-num">₹{totalEarning.toLocaleString('en-IN')}</div>
               </div>
+              <div className="od-table-wrap">
               <table className="od-table" style={{ marginTop: '1rem' }}>
                 <thead><tr><th>Category</th><th>Gender</th><th>Rooms</th><th>Rent</th><th>Status</th></tr></thead>
                 <tbody>
@@ -768,6 +772,7 @@ export default function OwnerDashboard() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </>
@@ -791,21 +796,23 @@ export default function OwnerDashboard() {
             <div className="od-pg-list">
               {listings.map(pg => (
                 <div className="od-pg-item" key={pg._id}>
-                  <div className="od-pg-thumb">
-                      {pg.image 
+                  {/* Top: thumbnail + info */}
+                  <div className="od-pg-item-top">
+                    <div className="od-pg-thumb">
+                      {pg.image
                         ? <SmartImage src={pg.image} alt={pg.title} fallback="" />
                         : '🏠'
                       }
                     </div>
-                  <div className="od-pg-info">
-                    <div className="od-pg-name">{pg.title}</div>
-                    <div className="od-pg-loc">
-                      📍 {pg.city || pg.area || pg.location || 'Location N/A'} {pg.pgType ? `· ${pg.pgType}` : ''}
-                    </div>
-                    <div className="od-pg-price-row">
+                    <div className="od-pg-info">
+                      <div className="od-pg-name">{pg.title}</div>
+                      <div className="od-pg-loc">
+                        📍 {pg.city || pg.area || pg.location || 'Location N/A'}{pg.pgType ? ` · ${pg.pgType}` : ''}
+                      </div>
                       <div className="od-pg-price">{pg.price}</div>
                     </div>
                   </div>
+                  {/* Bottom: action buttons */}
                   <div className="od-pg-actions">
                     <span className={`od-pill ${pg.isVacant ? 'od-pill--green' : 'od-pill--red'}`}>
                       {pg.isVacant ? '● Vacant' : '● Occupied'}
@@ -833,6 +840,7 @@ export default function OwnerDashboard() {
             <div className="od-earnings-label">Actual Monthly Revenue</div>
             <div className="od-earnings-num">₹{totalEarning.toLocaleString('en-IN')}</div>
           </div>
+          <div className="od-table-wrap">
           <table className="od-table">
             <thead><tr><th>Category</th><th>Gender</th><th>Rooms</th><th>Rent</th><th>Monthly Actual</th></tr></thead>
             <tbody>
@@ -877,24 +885,30 @@ export default function OwnerDashboard() {
                 <tr><td colSpan={5} style={{ textAlign: 'center', color: '#aaa', padding: '2rem' }}>No data yet</td></tr>
               )}
             </tbody>
-            {listings?.length > 0 && (
-              <tfoot>
-                <tr style={{ background: '#f8fafc', borderTop: '2px solid #e53528' }}>
-                  <td colSpan={4} style={{ fontWeight: 800, textAlign: 'right', padding: '1rem', fontSize: '0.95rem' }}>Actual Monthly Revenue:</td>
-                  <td style={{ color: '#065f46', fontWeight: 800, fontSize: '1.1rem', padding: '1rem' }}>
-                    ₹{totalEarning.toLocaleString('en-IN')}
-                  </td>
-                </tr>
-                <tr style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-                  <td colSpan={4} style={{ fontWeight: 600, textAlign: 'right', padding: '0.8rem', fontSize: '0.9rem', color: '#64748b' }}>Potential Monthly Revenue (100% Occupancy):</td>
-                  <td style={{ color: '#64748b', fontWeight: 600, fontSize: '0.95rem', padding: '0.8rem' }}>
-                    ₹{potentialEarning.toLocaleString('en-IN')}
-                  </td>
-                </tr>
-              </tfoot>
-            )}
           </table>
+          </div>
+
+          {/* Summary rows OUTSIDE the scroll area — always fully visible */}
+          {listings?.length > 0 && (
+            <div style={{ borderTop: '2px solid #e53528', marginTop: '0.5rem' }}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '0.75rem 0.6rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0'
+              }}>
+                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#374151' }}>Actual Monthly Revenue</span>
+                <span style={{ color: '#065f46', fontWeight: 800, fontSize: '1rem' }}>₹{totalEarning.toLocaleString('en-IN')}</span>
+              </div>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '0.65rem 0.6rem', background: '#f8fafc'
+              }}>
+                <span style={{ fontWeight: 600, fontSize: '0.82rem', color: '#64748b' }}>Potential Revenue (100% Occ.)</span>
+                <span style={{ color: '#64748b', fontWeight: 600, fontSize: '0.9rem' }}>₹{potentialEarning.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+          )}
         </div>
+
       );
 
       /* SETTINGS */
@@ -922,8 +936,13 @@ export default function OwnerDashboard() {
   return (
     <div className="od-root">
 
+      {/* Mobile sidebar overlay */}
+      <div className={`od-sidebar-overlay ${sidebarOpen ? 'open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       {/* ── SIDEBAR ── */}
-      <aside className="od-sidebar">
+      <aside className={`od-sidebar ${sidebarOpen ? 'open' : ''}`}>
         {/* Brand */}
         <div className="od-sidebar-brand">
           <PGLogo size={30} />
@@ -935,7 +954,7 @@ export default function OwnerDashboard() {
           {NAV.map(item => (
             <button key={item.id}
               className={`od-nav-item ${section === item.id ? 'active' : ''}`}
-              onClick={() => setSection(item.id)}>
+              onClick={() => { setSection(item.id); setSidebarOpen(false); }}>
               <span className="od-nav-icon">{item.icon}</span>
               {item.label}
             </button>
@@ -947,39 +966,50 @@ export default function OwnerDashboard() {
       <div className="od-main">
         {/* Topbar */}
         <header className="od-topbar">
-          <div className="od-topbar-title">
-            <h1>{NAV.find(n => n.id === section)?.label || 'Dashboard'}</h1>
-            <p>Welcome back, {userName}!</p>
-            {!online && (
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: '5px',
-                background: '#fef3c7', color: '#92400e',
-                borderRadius: '6px', padding: '3px 10px',
-                fontSize: '0.72rem', fontWeight: 700, marginTop: '4px'
-              }}>
-                📡 Offline — changes will sync when you reconnect
-              </span>
-            )}
-          </div>
-          <div className="od-topbar-right">
-            <button className="od-add-pg-btn" onClick={() => setShowCreate(true)}>
-              <span className="od-add-pg-plus">+</span> Add New PG
+          {/* od-topbar-inner is the actual flex row for content */}
+          <div className="od-topbar-inner">
+            {/* Hamburger - only visible on mobile */}
+            <button
+              className={`od-hamburger ${sidebarOpen ? 'open' : ''}`}
+              onClick={() => setSidebarOpen(v => !v)}
+              aria-label="Toggle sidebar"
+            >
+              <span /><span /><span />
             </button>
-            {/* Profile with dropdown */}
-            <div className="od-profile-wrap">
-              <div className="od-avatar" onClick={() => setShowUserMenu(v => !v)}>
-                {initial}
-              </div>
-              {showUserMenu && (
-                <div className="od-user-dropdown">
-                  <div className="od-user-dropdown-name">{userName}</div>
-                  <div className="od-user-dropdown-role">Owner Account</div>
-                  <hr className="od-user-dropdown-divider" />
-                  <button className="od-user-dropdown-item od-user-dropdown-item--red" onClick={handleLogout}>
-                    🚪 Logout
-                  </button>
-                </div>
+            <div className="od-topbar-title">
+              <h1>{NAV.find(n => n.id === section)?.label || 'Dashboard'}</h1>
+              <p>Welcome back, {userName}!</p>
+              {!online && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  background: '#fef3c7', color: '#92400e',
+                  borderRadius: '6px', padding: '3px 10px',
+                  fontSize: '0.72rem', fontWeight: 700, marginTop: '4px'
+                }}>
+                  📡 Offline — changes will sync when you reconnect
+                </span>
               )}
+            </div>
+            <div className="od-topbar-right">
+              <button className="od-add-pg-btn" onClick={() => setShowCreate(true)}>
+                <span className="od-add-pg-plus">+</span>
+              </button>
+              {/* Profile with dropdown */}
+              <div className="od-profile-wrap">
+                <div className="od-avatar" onClick={() => setShowUserMenu(v => !v)}>
+                  {initial}
+                </div>
+                {showUserMenu && (
+                  <div className="od-user-dropdown">
+                    <div className="od-user-dropdown-name">{userName}</div>
+                    <div className="od-user-dropdown-role">Owner Account</div>
+                    <hr className="od-user-dropdown-divider" />
+                    <button className="od-user-dropdown-item od-user-dropdown-item--red" onClick={handleLogout}>
+                      🚪 Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>

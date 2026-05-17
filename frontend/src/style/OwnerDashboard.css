@@ -91,37 +91,54 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   min-width: 0;
 }
 
-/* Topbar */
+/* Topbar: outer shell handles safe-area push */
 .od-topbar {
   background: #fff;
-  height: 68px;
+  border-bottom: 1px solid #e8eaf0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 100%;
+  /* Safe-area pushes the whole bar down below iPhone notch */
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Inner row: the actual flex layout — hamburger | title | actions */
+.od-topbar-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.5rem;
+  height: 68px;                  /* fixed content row height */
   padding: 0 1.8rem;
-  border-bottom: 1px solid #e8eaf0;
-  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 100%;
 }
+
 .od-topbar-title {
   display: flex;
   flex-direction: column;
   justify-content: center;
   line-height: 1;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
-.od-topbar-title h1 { font-size: 1.15rem; font-weight: 800; color: #1a1a2e; margin: 0; }
-.od-topbar-title p  { font-size: 0.78rem; color: #9ca3af; margin: 4px 0 0; }
-.od-topbar-right    { display: flex; align-items: center; gap: 0.8rem; }
+.od-topbar-title h1 { font-size: 1.15rem; font-weight: 800; color: #1a1a2e; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.od-topbar-title p  { font-size: 0.78rem; color: #9ca3af; margin: 4px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.od-topbar-right    { display: flex; align-items: center; gap: 0.8rem; flex-shrink: 0; }
 
-/* "Add New PG" button — white bg with red border and text, clear "+" */
+/* "Add PG" button — compact square with red border and "+" icon */
 .od-add-pg-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0.5rem 1.1rem;
+  justify-content: center;
+  padding: 0.4rem 0.65rem;
+  min-width: 36px;
   background: #fff;
   border: 2px solid #e53528;
   border-radius: 8px;
@@ -244,8 +261,15 @@
   background: rgba(255,255,255,0.12);
 }
 .od-stat-icon  { font-size: 1.5rem; margin-bottom: 0.4rem; }
-.od-stat-num   { font-size: 1.9rem; font-weight: 800; line-height: 1; }
-.od-stat-label { font-size: 0.8rem; opacity: 0.9; margin-top: 2px; font-weight: 500; }
+.od-stat-num   {
+  font-size: clamp(1.2rem, 3.5vw, 1.9rem);
+  font-weight: 800;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.od-stat-label { font-size: 0.8rem; opacity: 0.9; margin-top: 2px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .od-stat-link  { font-size: 0.72rem; opacity: 0.8; margin-top: 0.5rem; text-decoration: underline; cursor: pointer; }
 
 .od-stat-card--red    { --sc-a: #e53528; --sc-b: #ff6b5b; }
@@ -268,9 +292,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   margin-bottom: 1.1rem;
 }
-.od-card-title { font-size: 0.97rem; font-weight: 800; color: #1a1a2e; }
+.od-card-title {
+  font-size: 0.97rem;
+  font-weight: 800;
+  color: #1a1a2e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .od-chip {
   font-size: 0.72rem;
   font-weight: 600;
@@ -280,13 +313,15 @@
   color: #555;
   border: none;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .od-chip:hover { background: #e8eaf0; }
 
 /* Earnings big number */
 .od-earnings-big { text-align: center; padding: 0.8rem 0; }
 .od-earnings-label { font-size: 0.78rem; color: #9ca3af; margin-bottom: 0.2rem; }
-.od-earnings-num { font-size: 2.2rem; font-weight: 800; color: #065f46; }
+.od-earnings-num { font-size: clamp(1.5rem, 5vw, 2.2rem); font-weight: 800; color: #065f46; }
 
 /* ────────────────────────────────────────────────
    PG LIST ITEMS
@@ -294,15 +329,23 @@
 .od-pg-list { display: flex; flex-direction: column; gap: 0.8rem; }
 .od-pg-item {
   display: flex;
-  align-items: center;
-  gap: 0.9rem;
+  flex-direction: column;
   background: #fafbfc;
   border: 1px solid #eee;
   border-radius: 10px;
   padding: 0.8rem 0.9rem;
+  gap: 0.6rem;
   transition: box-shadow 0.15s;
 }
 .od-pg-item:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.07); }
+/* Desktop: item-top = horizontal row (thumb + info), actions inline */
+.od-pg-item-top {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex: 1;
+  min-width: 0;
+}
 .od-pg-thumb {
   width: 66px; height: 52px;
   border-radius: 8px;
@@ -313,37 +356,33 @@
   flex-shrink: 0;
 }
 .od-pg-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
-.od-pg-info { flex: 1; min-width: 0; }
+.od-pg-info { flex: 1; min-width: 0; overflow: hidden; }
 .od-pg-name  { font-size: 0.89rem; font-weight: 700; color: #1a1a2e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.od-pg-price-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 0.4rem;
+.od-pg-loc {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0.15rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .od-pg-price {
   color: #e53528;
   font-weight: 800;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
+  margin-top: 2px;
 }
-.od-pg-earning {
-  font-size: 0.85rem;
-  color: #64748b;
-  font-weight: 600;
+/* On desktop: item-top and actions are side by side */
+@media (min-width: 769px) {
+  .od-pg-item { flex-direction: row; align-items: center; }
+  .od-pg-actions { flex-shrink: 0; }
 }
-.od-pg-earning span {
-  color: #065f46;
-  font-weight: 800;
+.od-pg-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
 }
-.od-pg-loc {
-  font-size: 0.9rem;
-  color: #64748b;
-  margin: 0.2rem 0;
-  white-space: normal;
-  line-height: 1.4;
-  word-break: break-word;
-}
-.od-pg-actions { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; flex-wrap: wrap; }
 
 /* Status pills */
 .od-pill {
@@ -354,6 +393,13 @@
   border-radius: 20px;
   font-size: 0.68rem;
   font-weight: 700;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+/* Compact pill for widget (smaller, fits in row) */
+.od-pill--compact {
+  font-size: 0.62rem;
+  padding: 2px 7px;
 }
 .od-pill--green  { background: #ecfdf5; color: #065f46; }
 .od-pill--red    { background: #fff1f2; color: #9f1239; }
@@ -378,13 +424,15 @@
 /* ────────────────────────────────────────────────
    TABLE
 ──────────────────────────────────────────────── */
-.od-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.od-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+.od-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 380px; }
 .od-table th {
-  text-align: left; padding: 0.55rem 0.7rem;
-  color: #9ca3af; font-weight: 600; font-size: 0.73rem;
+  text-align: left; padding: 0.5rem 0.6rem;
+  color: #9ca3af; font-weight: 600; font-size: 0.7rem;
   border-bottom: 1px solid #f0f2f5;
+  white-space: nowrap;
 }
-.od-table td { padding: 0.75rem 0.7rem; border-bottom: 1px solid #f4f6f9; vertical-align: middle; }
+.od-table td { padding: 0.65rem 0.6rem; border-bottom: 1px solid #f4f6f9; vertical-align: middle; white-space: nowrap; }
 .od-table tr:last-child td { border-bottom: none; }
 .od-table tr:hover td { background: #fafbfc; }
 
@@ -710,13 +758,202 @@
 .od-form-error   { color: #e53528; font-size: 0.78rem; margin-top: 0.5rem; }
 .od-form-success { color: #065f46; background: #ecfdf5; padding: 0.6rem 1rem; border-radius: 8px; font-size: 0.8rem; }
 
-/* ── Responsive ── */
+/* ── Hamburger ── */
+.od-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 38px;
+  height: 38px;
+  background: none;
+  border: 1px solid #e8eaf0;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.od-hamburger:hover { background: #f4f6f9; }
+.od-hamburger span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: #374151;
+  border-radius: 2px;
+  transition: all 0.28s ease;
+  transform-origin: center;
+}
+.od-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.od-hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+.od-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* Mobile sidebar overlay */
+.od-sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(2px);
+}
+.od-sidebar-overlay.open { display: block; }
+
+/* ────────────────────────────────────────────────
+   RESPONSIVE BREAKPOINTS
+──────────────────────────────────────────────── */
+
+/* Tablet: 2-col stats */
 @media (max-width: 1024px) {
   .od-stats-row { grid-template-columns: repeat(2, 1fr); }
   .od-grid-2    { grid-template-columns: 1fr; }
 }
-@media (max-width: 600px) {
-  .od-sidebar   { display: none; }
-  .od-amenities-grid { grid-template-columns: repeat(2, 1fr); }
+
+/* Mobile: off-canvas sidebar + stacked cards */
+@media (max-width: 768px) {
+  /* Allow page to scroll normally */
+  .od-root {
+    position: relative;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    overflow-x: hidden;
+    flex-direction: column;
+  }
+
+  /* Sidebar slides in from left */
+  .od-sidebar {
+    position: fixed;
+    top: 0;
+    left: -240px;
+    height: 100vh;
+    z-index: 350;
+    width: 240px;
+    transition: left 0.28s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: none;
+  }
+  .od-sidebar.open {
+    left: 0;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.18);
+  }
+
+  /* Main area takes full width */
+  .od-main { min-height: 100vh; overflow-x: hidden; overflow-y: auto; width: 100%; }
+  .od-content { overflow-y: visible; padding: 1rem 0.75rem; }
+
+  /* Topbar: hamburger LEFT | title CENTER | actions RIGHT */
+  .od-hamburger { display: flex; }
+
+  /* Outer shell: safe-area only */
+  .od-topbar {
+    padding-top: env(safe-area-inset-top, 0px);
+    overflow: visible;   /* allow dropdown to extend outside */
+  }
+
+  /* Inner row: fixed height that fits title + subtitle cleanly */
+  .od-topbar-inner {
+    height: 68px;
+    padding: 0 1rem 0 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .od-topbar-title h1 { font-size: 0.88rem; }
+  .od-topbar-title p  { font-size: 0.65rem; }
+  .od-topbar-right { gap: 0.5rem; }
+
+  /* Add PG button: compact square on mobile */
+  .od-add-pg-btn {
+    padding: 0.4rem 0.65rem;
+    min-width: 32px;
+    justify-content: center;
+  }
+
+  /* Stats: 2 columns, reset sticky + negative margins from desktop */
+  .od-stats-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.7rem;
+    margin-bottom: 1rem;
+    position: static;
+    margin-top: 0;
+    padding-top: 0;
+  }
+  .od-stat-icon  { font-size: 1.2rem; margin-bottom: 0.2rem; }
+  .od-stat-num   { font-size: 1.4rem; }
+  .od-stat-label { font-size: 0.72rem; }
+  .od-stat-card  { padding: 0.9rem 0.9rem; }
+
+  /* PG listing card: col layout on mobile */
+  .od-pg-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.7rem;
+  }
+  .od-pg-item-top {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+  }
+  .od-pg-thumb { width: 52px; height: 44px; flex-shrink: 0; }
+  .od-pg-info  { flex: 1; min-width: 0; overflow: hidden; }
+  .od-pg-name  { font-size: 0.84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .od-pg-loc   { font-size: 0.73rem; }
+  .od-pg-price { font-size: 0.95rem; }
+  /* Actions: spread evenly on full-width row */
+  .od-pg-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+  }
+  .od-pg-actions .od-btn-sm {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    padding: 0.35rem 0.4rem;
+    font-size: 0.7rem;
+  }
+
+  /* Tables: horizontal scroll within card */
+  .od-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 6px; }
+  .od-table { min-width: 340px; font-size: 0.76rem; }
+
+  /* Modal: bottom-sheet style */
+  .od-modal-overlay { padding: 0; align-items: flex-end; }
+  .od-modal {
+    border-radius: 20px 20px 0 0;
+    max-height: 90vh;
+    width: 100%;
+    max-width: 100%;
+  }
+  .od-modal-body { max-height: 60vh; padding: 1rem; }
+  .od-modal-header { padding: 1rem 1.2rem 0.8rem; }
+  .od-modal-header h2 { font-size: 1rem; }
+
+  /* Forms: single column */
   .od-form-grid, .od-form-grid--3 { grid-template-columns: 1fr; }
+  .od-grid-2 { grid-template-columns: 1fr; }
+  .od-amenities-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Small phones */
+@media (max-width: 420px) {
+  .od-stats-row { grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .od-stat-card  { padding: 0.7rem 0.75rem; }
+  .od-stat-num   { font-size: 1.2rem; }
+  .od-stat-label { font-size: 0.68rem; }
+  .od-topbar-title h1 { font-size: 0.82rem; }
+  .od-topbar-title p  { font-size: 0.6rem; } /* keep subtitle visible, just smaller */
+  .od-content { padding: 0.8rem 0.6rem; }
+  .od-card { padding: 1rem 0.8rem; }
+  .od-modal-footer { flex-direction: column; gap: 0.4rem; }
+  .od-modal-footer-right { width: 100%; }
+  .od-modal-footer-right button { flex: 1; }
+  .od-modal-footer-left { display: none; }
+  .od-amenities-grid { grid-template-columns: repeat(2, 1fr); }
+  .od-pg-actions .od-btn-sm { font-size: 0.65rem; padding: 0.3rem 0.35rem; }
 }
