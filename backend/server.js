@@ -40,11 +40,10 @@ app.use('/api/auth', require('./routes/auth')); // Mount the auth routes
 app.use('/api/listings', require('./routes/listings')); // Mount the listings routes
 
 // --- Start the Server ---
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-}
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
 
 // --- Export for Vercel ---
 // CRITICAL: Vercel requires the express instance to be exported to handle serverless requests.
