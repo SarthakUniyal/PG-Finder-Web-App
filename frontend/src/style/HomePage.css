@@ -606,38 +606,53 @@ html, body {
 }
 
 /* ═══════════════════════════════════
-   HAMBURGER BUTTON
+   MOBILE NAV TOGGLE (User Avatar)
    ═══════════════════════════════════ */
-.hp-hamburger {
+.hp-mobile-toggle {
   display: none;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 5px;
-  width: 40px;
-  height: 40px;
-  background: none;
-  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid #e2e8f0;
+  background: linear-gradient(135deg, #e53528, #c62d22);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
   cursor: pointer;
-  padding: 0;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  border-radius: 8px;
-  transition: background 0.2s;
-  margin-left: auto; /* always push to far right */
+  margin-left: auto;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  padding: 0;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(229, 53, 40, 0.25);
+  position: relative;
+  overflow: hidden;
 }
-.hp-hamburger:hover { background: #f5f5f5; }
-.hp-hamburger span {
-  display: block;
-  width: 22px;
-  height: 2px;
-  background: #1a1a2e;
-  border-radius: 2px;
-  transition: all 0.28s ease;
-  transform-origin: center;
+.hp-mobile-toggle:hover {
+  transform: scale(1.06);
+  box-shadow: 0 4px 14px rgba(229, 53, 40, 0.35);
 }
-.hp-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-.hp-hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
-.hp-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+.hp-mobile-toggle:active {
+  transform: scale(0.95);
+}
+/* Guest state — grey neutral background */
+.hp-mobile-toggle--guest {
+  background: linear-gradient(135deg, #94a3b8, #64748b);
+  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.25);
+}
+.hp-mobile-toggle--guest:hover {
+  box-shadow: 0 4px 14px rgba(100, 116, 139, 0.35);
+}
+/* SVG icon for guest */
+.hp-mobile-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: #fff;
+}
 
 /* Mobile drawer */
 .hp-mobile-drawer {
@@ -699,7 +714,7 @@ html, body {
   .hp-nav-inner { padding: 0 1rem; gap: 0; }
   .hp-nav-menu { display: none; }
   .hp-nav-actions { display: none; }
-  .hp-hamburger { display: flex; } /* margin-left:auto from base rule pushes it right */
+  .hp-mobile-toggle { display: flex; }
 }
 /* Tablet portrait */
 @media (max-width: 768px) {
