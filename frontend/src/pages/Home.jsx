@@ -4,6 +4,7 @@ import '../style/HomePage.css';
 import PGLogo from '../components/PGLogo';
 import SmartImage from '../components/SmartImage';
 import { isOnline } from '../utils/offlineManager';
+import API_BASE_URL from '../config/api';
 
 // ── Cache helpers ─────────────────────────────────────────────────────────────
 // Versioned key — bump to force a cache bust when data shape changes
@@ -134,7 +135,7 @@ export default function Home() {
     const controller = new AbortController();
     const timeoutId  = setTimeout(() => controller.abort(), 10000); // 10-second timeout
 
-    fetch('http://localhost:4000/api/listings?vacant=true', { signal: controller.signal })
+    fetch(`${API_BASE_URL}/api/listings?vacant=true`, { signal: controller.signal })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data || !Array.isArray(data)) return;

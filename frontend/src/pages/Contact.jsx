@@ -6,6 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
 import PGLogo from '../components/PGLogo';
+import API_BASE_URL from '../config/api';
 import '../style/Contact.css';
 import '../style/HomePage.css';
 
@@ -46,7 +47,7 @@ export default function Contact() {
     // Fetch vacant listings
     const fetchListings = async () => {
       try {
-        const res = await axios.get('http://localhost:4000/api/listings?vacant=true');
+        const res = await axios.get(`${API_BASE_URL}/api/listings?vacant=true`);
         setListings(res.data);
       } catch (err) {
         console.error('Error fetching listings:', err);

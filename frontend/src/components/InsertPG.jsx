@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import API_BASE_URL from '../config/api';
 
 const InsertPG = () => {
   
@@ -29,7 +30,7 @@ const InsertPG = () => {
 
             if(image) formData.append('image',image);
 
-            const response = await axios.post(`http://localhost:4001/pg/`,formData,{
+            const response = await axios.post(`${API_BASE_URL}/pg/`,formData,{
                 headers:{
                     'Content-type':'multipart/form-data'
                 }

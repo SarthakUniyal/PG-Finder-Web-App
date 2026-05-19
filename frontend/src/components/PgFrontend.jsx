@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios';
 import { Card, Button, Row, Col, Container } from 'react-bootstrap';
+import API_BASE_URL from '../config/api';
 import "../style/PG.scss"
 const PgFrontend = () => {
   const [pg, setPG]=useState([]);
   useEffect(()=>{
-    axios.get(`http://localhost:4001/pg`)
+    axios.get(`${API_BASE_URL}/pg`)
     .then((response)=>{
         setPG(response.data);
     })

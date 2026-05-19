@@ -4,6 +4,7 @@ import axios from 'axios';
 import PGLogo from '../components/PGLogo';
 import SmartImage from '../components/SmartImage';
 import { cachedGet, cachedMutate, isOnline } from '../utils/offlineManager';
+import API_BASE_URL from '../config/api';
 import '../style/OwnerDashboard.css';
 
 /* ──────────────────────────────────────────────────────────
@@ -206,11 +207,11 @@ function CreatePGModal({ onClose, onCreated, initialData }) {
       
       let res;
       if (initialData) {
-        res = await axios.put(`http://localhost:4000/api/listings/${initialData._id}`, payload, {
+        res = await axios.put(`${API_BASE_URL}/api/listings/${initialData._id}`, payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        res = await axios.post('http://localhost:4000/api/listings', payload, {
+        res = await axios.post(`${API_BASE_URL}/api/listings`, payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
       }
@@ -543,7 +544,7 @@ export default function OwnerDashboard() {
     const loadingTimer = setTimeout(() => setLoading(false), 4000);
     try {
       const data = await cachedGet(
-        'http://localhost:4000/api/listings/owner',
+        `${API_BASE_URL}/api/listings/owner`,
         token,
         // Called when background refresh completes — keeps dashboard in sync on slow mobile
         (fresh) => {
@@ -570,7 +571,7 @@ export default function OwnerDashboard() {
     try {
       const data = await cachedMutate(
         'PATCH',
-        `http://localhost:4000/api/listings/${id}/status`,
+        `${API_BASE_URL}/api/listings/${id}/status`,
         {},
         token,
         () => console.log('[Offline] Toggle status queued for sync')
@@ -597,7 +598,7 @@ export default function OwnerDashboard() {
     try {
       await cachedMutate(
         'DELETE',
-        `http://localhost:4000/api/listings/${idToDelete}`,
+        `${API_BASE_URL}/api/listings/${idToDelete}`,
         null,
         token,
         () => console.log('[Offline] Delete PG queued for sync')

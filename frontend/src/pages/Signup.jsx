@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiUser, FiMail, FiLock, FiHome } from 'react-icons/fi';
 import '../style/Auth.css';
+import API_BASE_URL from '../config/api';
 import PGLogo from '../components/PGLogo';
 
 function Signup() {
@@ -21,7 +22,7 @@ function Signup() {
     setError('');
     setIsLoading(true);
     try {
-      const res  = await fetch('http://localhost:4000/api/auth/signup', {
+      const res  = await fetch(`${API_BASE_URL}/api/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fullName, email, accountType, password }),

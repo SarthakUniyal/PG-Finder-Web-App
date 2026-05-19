@@ -4,6 +4,7 @@ import axios from 'axios';
 import PGLogo from '../components/PGLogo';
 import SmartImage from '../components/SmartImage';
 import { cachedGet, cachedMutate, isOnline } from '../utils/offlineManager';
+import API_BASE_URL from '../config/api';
 import '../style/HomePage.css';
 
 /* ── Image gallery sub-component with active thumbnail state ── */
@@ -114,7 +115,7 @@ export default function PGListings() {
     };
 
     cachedGet(
-      'http://localhost:4000/api/auth/saved-pgs-populated?v=2',
+      `${API_BASE_URL}/api/auth/saved-pgs-populated?v=2`,
       token,
       applyData   // ← background refresh callback
     )
@@ -160,7 +161,7 @@ export default function PGListings() {
     try {
       await cachedMutate(
         'DELETE',
-        `http://localhost:4000/api/auth/saved-pgs/${id}`,
+        `${API_BASE_URL}/api/auth/saved-pgs/${id}`,
         null,
         token,
         () => console.log('[Offline] Remove PG queued for sync')

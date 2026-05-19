@@ -1,5 +1,6 @@
 import React,{useEffect, useState} from 'react'
 import axios from 'axios';
+import API_BASE_URL from '../../config/api';
 import '../../style/PdrCntnt.scss';
 
 const PrdCntnt = () => {
@@ -7,7 +8,7 @@ const PrdCntnt = () => {
   const [room, setRoom]=useState([]);
   useEffect(()=>{
     axios
-        .get(`http://localhost:4001/rooms`)
+        .get(`${API_BASE_URL}/rooms`)
         .then((response)=>{
             setRoom(response.data);
         })

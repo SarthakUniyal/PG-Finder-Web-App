@@ -7,6 +7,7 @@ import PGLogo from '../components/PGLogo';
 import SmartImage from '../components/SmartImage';
 import { findNearestPG } from '../utils/dijkstra';
 import { cachedGet, cachedMutate, isOnline } from '../utils/offlineManager';
+import API_BASE_URL from '../config/api';
 import '../style/ExploreMap.css';
 import '../style/HomePage.css';
 
@@ -291,7 +292,7 @@ export default function ExploreMap() {
 
     // Fetch vacant listings — returns cached instantly, refreshes in background
     cachedGet(
-      'http://localhost:4000/api/listings?vacant=true&refresh=true',
+      `${API_BASE_URL}/api/listings?vacant=true&refresh=true`,
       null,
       (fresh) => setListings(fresh)      // ← background refresh callback
     )
@@ -301,7 +302,7 @@ export default function ExploreMap() {
     // Fetch saved PG IDs (if logged in)
     if (token) {
       cachedGet(
-        'http://localhost:4000/api/auth/saved-pgs',
+        `${API_BASE_URL}/api/auth/saved-pgs`,
         token,
         (fresh) => setSavedIds(fresh)    // ← background refresh callback
       )
@@ -369,7 +370,7 @@ export default function ExploreMap() {
       return;
     }
     cachedGet(
-      `http://localhost:4000/api/listings/${selectedLinePG._id}`,
+      `${API_BASE_URL}/api/listings/${selectedLinePG._id}`,
       null,
       (fresh) => setFullSelectedPG(fresh)  // background refresh
     )
@@ -649,7 +650,7 @@ export default function ExploreMap() {
                                     try {
                                       await cachedMutate(
                                         'POST',
-                                        `http://localhost:4000/api/auth/saved-pgs/${pg._id}`,
+                                        `${API_BASE_URL}/api/auth/saved-pgs/${pg._id}`,
                                         {},
                                         token,
                                         () => console.log('[Offline] Save PG queued for sync')

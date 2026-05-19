@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FiMail, FiLock } from 'react-icons/fi';
 import '../style/Auth.css';
 import PGLogo from '../components/PGLogo';
+import API_BASE_URL from '../config/api';
 
 // ─── localStorage keys ────────────────────────────────────────────────────────
 const SESSION_KEY     = 'pg_session';      // {token, userRole, userId, userName, email}
@@ -85,7 +86,7 @@ async function fetchWithTimeout(url, options, timeoutMs = 10000) {
 async function loginRequest(email, password) {
   // One attempt with 10 s timeout (don't retry — fall through to offline faster)
   return fetchWithTimeout(
-    'http://localhost:4000/api/auth/login',
+    `${API_BASE_URL}/api/auth/login`,
     {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },

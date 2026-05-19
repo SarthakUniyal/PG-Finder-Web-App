@@ -18,7 +18,11 @@ app.get('/health', (req, res) => {
 });
 
 app.use(cors({
-  origin: "https://pg-finder-web-app.vercel.app",
+  origin: [
+    "https://pg-finder-web-app.vercel.app",
+    "http://localhost:5173",   // Vite dev server
+    "http://localhost:3000",   // fallback dev port
+  ],
   credentials: true
 }));
 
