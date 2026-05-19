@@ -267,6 +267,9 @@ export default function ExploreMap() {
   const [loadingDetail, setLoadingDetail] = useState(null);
   const [online, setOnline] = useState(isOnline());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showTouchOverlay, setShowTouchOverlay] = useState(false);
+  const touchOverlayTimer = React.useRef(null);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
   useEffect(() => {
     // Auth guard — redirect to login if not logged in
@@ -530,13 +533,33 @@ export default function ExploreMap() {
           </div>
         </div>
 
-        <div className="map-view-container">
+        <div className="map-view-container"
+          onTouchStart={(e) => {
+            // Show "use two fingers" overlay when user tries to scroll on map with one finger
+            if (isMobile && e.touches.length === 1) {
+              setShowTouchOverlay(true);
+              clearTimeout(touchOverlayTimer.current);
+              touchOverlayTimer.current = setTimeout(() => setShowTouchOverlay(false), 1500);
+            }
+          }}
+          onTouchEnd={() => {
+            clearTimeout(touchOverlayTimer.current);
+            touchOverlayTimer.current = setTimeout(() => setShowTouchOverlay(false), 800);
+          }}
+        >
+          {/* Two-finger overlay message */}
+          <div className={`map-touch-overlay ${showTouchOverlay ? 'visible' : ''}`}>
+            <div className="map-touch-overlay-text">☝️ Use two fingers to move the map</div>
+          </div>
+
           <MapContainer
             center={defaultCenter}
             zoom={5}
-            scrollWheelZoom={true}
+            scrollWheelZoom={!isMobile}
+            dragging={!isMobile}
+            touchZoom={true}
             zoomControl={false}
-            style={{ height: '700px', width: '100%', background: '#fff' }}
+            style={{ height: isMobile ? '400px' : '700px', width: '100%', background: '#fff' }}
           >
             <FitListingsBounds listings={listings} />
 
