@@ -18,7 +18,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use(cors({
-  origin: "https://pg-finder-web-k8aomwmls-sarthakuniyals-projects.vercel.app",
+  origin: "https://pg-finder-web-app.vercel.app",
   credentials: true
 }));
 
